@@ -1,0 +1,5 @@
+*.json
+dist
+build
+coverage
+scripts
