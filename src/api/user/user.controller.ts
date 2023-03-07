@@ -4,6 +4,7 @@ import {UserService} from './user.service';
 
 export class UserController implements ICrudController {
   // PROPERTIES
+  routeName = 'users';
   private userService: UserService;
 
   // CTOR
@@ -25,9 +26,7 @@ export class UserController implements ICrudController {
   }
 
   public async create(req: Request, res: Response): Promise<Response> {
-    return res
-      .status(200)
-      .json({function: 'create', data: this.userService.create(req)});
+    return res.status(200).json({function: 'create', data: this.userService.create(req)});
   }
 
   public async update(req: Request, res: Response): Promise<Response> {

@@ -1,17 +1,6 @@
 import * as winston from 'winston';
 import * as expressWinston from 'express-winston';
-import Configuration from '../config/index';
-
-// severity levels.
-export enum LoggerLevels {
-  error = 'error',
-  warn = 'warn',
-  info = 'info',
-  http = 'http',
-  debug = 'debug',
-  verbose = 'verbose',
-  silly = 'silly',
-}
+import Configuration from '../config/config';
 
 /** ==========================================
  *
@@ -24,8 +13,8 @@ export class Logger {
   public logger: winston.Logger;
   private _expressWinstonConfig: expressWinston.LoggerOptions;
 
-  private FORMAT_TIME: string = 'YYYY-MM-DD HH:mm:ss';
-  private TIME_ZONE: string = 'America/Argentina/Buenos_Aires';
+  private FORMAT_TIME = 'YYYY-MM-DD HH:mm:ss';
+  private TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
   // SINGLETON
   public static getInstance(): Logger {
@@ -65,9 +54,7 @@ export class Logger {
     @returns string representating minimum level that Winston logger must print
   */
   private initLevel(): string {
-    return Configuration.ServerConfiguration.defaultConfig.STAGE === 'production'
-      ? LoggerLevels.info
-      : LoggerLevels.debug;
+    return Configuration.getConfig().logging.MIN_LEVEL;
   }
 
   /**
@@ -76,13 +63,13 @@ export class Logger {
   */
   private initLogFormat(): winston.Logform.Format {
     return winston.format.combine(
-      winston.format.errors({ stack: true }), // show stack trace on error
+      winston.format.errors({stack: true}), // show stack trace on error
       winston.format.json(),
-      winston.format.timestamp({format: this.FORMAT_TIME}), //messages timestamps with the preferred format
+      winston.format.timestamp({format: this.FORMAT_TIME}), // messages timestamps with the preferred format
       winston.format.colorize({all: true}), // Tell Winston that the logs must e colored
-      winston.format.printf( // Define the format of the message showing the timestamp, the level and the message
-        ({level, message, timestamp}) =>
-          `[${timestamp}] [${level}]: ${message}`,
+      winston.format.printf(
+        // Define the format of the message showing the timestamp, the level and the message
+        ({level, message, timestamp}) => `[${timestamp}] [${level}]: ${message}`,
       ),
     );
   }
@@ -94,5 +81,4 @@ export class Logger {
   private initTransports(): winston.transport[] {
     return [new winston.transports.Console()];
   }
-
 }

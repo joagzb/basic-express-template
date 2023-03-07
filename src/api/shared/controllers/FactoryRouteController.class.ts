@@ -1,9 +1,12 @@
-import {UserController} from 'api/user/user.controller';
 import {Router} from 'express';
+import Configuration from '../../../config/config';
 import {IBasicController} from './IBasicController.interface';
-import Configuration from '../../../config/index';
 
-
+/** ========================================================
+ *
+ * wraps common controller's properties and behaviours
+ *
+ ======================================================== */
 export abstract class FactoryRouteController<T extends IBasicController> {
   // PROPERTIES
   public readonly router: Router;
@@ -11,13 +14,15 @@ export abstract class FactoryRouteController<T extends IBasicController> {
   protected controller: T;
 
   // CTOR
-  public constructor(routeName: string, controller: T) {
+  public constructor(controller: T) {
     this.router = Router();
     this.controller = controller;
-    this.routeName = `${Configuration.ServerConfiguration.defaultConfig.GLOBAL_URL_PREFIX}/${routeName}`;
+    this.routeName = `${Configuration.getConfig().server.GLOBAL_URL_PREFIX}/${controller.routeName}`;
+    this.initMiddlewares();
     this.initRoutes();
   }
 
   // METHODS
+  protected abstract initMiddlewares(): void;
   protected abstract initRoutes(): void;
 }

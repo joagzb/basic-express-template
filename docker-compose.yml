@@ -1,14 +1,29 @@
-version: '3.8'
+version: '3.8' # version of Docker Compose file format
 
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  app: # name of the service, can be any name you choose
+    build: . # specifies that the Docker image for a particular service should be built using a Dockerfile located in the current directory (.).
+    container_name: example-app # name of the container, can be any name you choose
     ports:
-      - "3000:3000"
+      - '3000:3000' # expose port 3000 on the host and forward to port 3000 in the container [HOST_PORT:CONTAINER_PORT]
     env_file:
       - .env
     volumes:
-      - .:/app
+      - .:/app # mount the root <.> directory on the host to the <./app> directory in the container
+    # depends_on: # specify that another service should be started before this one
+    #   - db
+    # links:
+    #   - db
     command: npm run start
+
+  # db:
+  #   image: mongo
+  #   restart: always # restart the container automatically if it stops
+  #   container_name: db-mongo
+  #   ports:
+  #     - 5432:5432
+  #   environment: # set environment variables
+  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+  #   volumes:
+  #     - ./data/db:/data/db

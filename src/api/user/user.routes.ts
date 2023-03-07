@@ -5,7 +5,7 @@ import {UserController} from './user.controller';
 class UserRoutes extends FactoryRouteController<UserController> {
   // CTOR
   public constructor() {
-    super('user',new UserController());
+    super(new UserController());
   }
 
   // OVERRIDE
@@ -17,6 +17,7 @@ class UserRoutes extends FactoryRouteController<UserController> {
     this.router.delete(`/:id`, (req, res) => this.controller.delete(req, res));
   }
 
+  protected initMiddlewares(): void {}
 }
 
 export default new UserRoutes();

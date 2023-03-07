@@ -7,7 +7,7 @@
 
 ## Installation and Deployment 🔧📦
 
-_At the root of the project, create a .env file that contains the environment variables as shown in the .env.example file:_
+_At the root of the project, create a .env file that must contains the environment variables as shown in the .env.example:_ 
 
 ### local->
 
@@ -17,6 +17,7 @@ $ npm start
 ```
 
 ### docker->
+
 _Build the Docker image by running the following command in the root of your project directory_
 
 ```

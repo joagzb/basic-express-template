@@ -20,14 +20,13 @@ export const getRunningHostAndPort = (host: string, port: string): string => {
   @param {any} obj an object that contain any property to be printed on console
   @returns string
 */
-export const listObjectProperties = (obj: any): string => {
-  let propList = "";
+export const listObjectProperties = (obj: any, spacing = 0): string => {
+  let propList = '';
   for (const prop in obj) {
-
     if (typeof obj[prop] !== 'object') {
-      propList += prop + ": " + obj[prop] + "\n";
+      propList += `${''.padStart(spacing + 2, ' ') + prop}: ${obj[prop]}\n`;
     } else {
-      propList += listObjectProperties(obj[prop]) + "\n";
+      propList += `${''.padStart(spacing, ' ') + prop}:\n${listObjectProperties(obj[prop], 2)}\n`;
     }
   }
   return propList;

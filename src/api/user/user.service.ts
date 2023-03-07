@@ -1,7 +1,7 @@
 import {UserInterface} from './user.model';
 import {v4 as uuidv4} from 'uuid';
 import {Request} from 'express';
-import {calculateAge} from './utils/userDate.util';
+import {calculateAge} from './user.util';
 import {IBasicService} from '../shared/services/IBasicService.interface';
 
 export class UserService implements IBasicService {
@@ -17,9 +17,7 @@ export class UserService implements IBasicService {
       dateOfBirth: new Date(1993, 7, 14).toISOString(),
     };
 
-    return `${fulano.name} ${fulano.surname} has ${calculateAge(
-      fulano,
-    )} years old`;
+    return `${fulano.name} ${fulano.surname} has ${calculateAge(fulano)} years old`;
   };
 
   create = (req: Request): UserInterface => {
