@@ -2,6 +2,17 @@ export interface AppConfig {
   server: ServerConfig;
   database: DBConnectionConfig;
   logging: LoggingConfig;
+  timezone: TimezoneConfig;
+}
+
+/** ========================================================
+ *
+ * Timezone configurations models
+ *
+ ======================================================== */
+interface TimezoneConfig {
+  TIMEZONE: string;
+  FORMAT_TIME: string;
 }
 
 /** ========================================================
@@ -45,7 +56,7 @@ interface DBConnectionProperties {
 
 interface DBAuthProperties {
   USERNAME: string;
-  PASSWORD?: string;
+  PASSWORD: string;
 }
 
 export interface PostgresConnectionProperties extends DBConnectionProperties, DBAuthProperties {

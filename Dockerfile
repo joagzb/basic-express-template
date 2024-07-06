@@ -1,24 +1,38 @@
-# Check out https://hub.docker.com/_/node to select a new base image
-FROM node:16-slim
+# Use the official Node.js image as the build environment
+FROM node:16-slim AS builder
 
-# Create a new directory in the image to hold the application code
-RUN mkdir -p /usr/src/app
-
-# set the working directory for the container to the app's root directory
+# Create app directory
 WORKDIR /usr/src/app
 
-# Copy the package.json and package-lock.json (or yarn.lock) files to the container
-# 'package*.json' wildcard is used to ensure both package.json AND package-lock.json are copied
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
 # Install app dependencies
 RUN npm install
 
-# Copy the rest of the application code to the container
+# Copy the rest of the application code
 COPY . .
 
-# set container environments variables and map them to the host OS
-EXPOSE 3000
+# Build the TypeScript code
+RUN npm run build
 
-# init server by running package.json commands
-CMD [ "npm", "start" ]
+# Use a smaller Node.js image for the runtime environment
+FROM node:16-slim
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Copy only the build output and package.json to the runtime image
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/package*.json ./
+
+# Install only production dependencies
+RUN npm install --production
+
+# Expose the port your app runs on
+ENV NODE_ENV production
+ENV PORT 3000
+EXPOSE $PORT
+
+# Command to run the application
+CMD ["node", "dist/index.js"]

@@ -1,6 +1,6 @@
 {
   "name": "basic-express-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "express and typescript server bootstrap",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,20 @@
     "start": "npm run build && npm run serve",
     "start:prod": "npm run build && node dist/index.js"
   },
-  "author": "joaquin gonzalez budino",
+  "author": {
+    "name": "Joaquin Gonzalez Budino",
+    "email": "joa_gzb@hotmail.com",
+    "github": "https://github.com/joagzb",
+    "linkedin": "http://linkedin.com/in/joaquin-gonzalez-budino"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nodejs",
+    "express",
+    "template",
+    "server",
+    "bootstrap"
+  ],
   "dependencies": {
     "cors": "^2.8.5",
     "cross-env": "^7.0.3",

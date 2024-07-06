@@ -1,5 +1,57 @@
+# Ignore all JSON files
 *.json
+
+# Build and distribution directories
 dist
 build
+target
+out
+
+# Coverage and test output directories
 coverage
+test-output
+
+# Ignore specific scripts directory
 scripts
+
+# Ignore node modules
+node_modules
+
+# Ignore environment files
+.env
+.env.local
+.env.*.local
+
+# Ignore lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Ignore log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore OS generated files
+.DS_Store
+*.swp
+*.swo
+*.bak
+
+# Ignore Docker files
+.dockerignore
+Dockerfile
+Dockerfile.*
+
+# Ignore configuration files
+*.config.js
+*.config.ts
+*.conf.js
+*.conf.ts
+
+# Ignore IDE specific files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
