@@ -1,24 +1,24 @@
 # Check out https://hub.docker.com/_/node to select a new base image
 FROM node:16-slim
 
-# Create a new directory in the image to hold the application code
-RUN mkdir -p /usr/src/app
-
-# set the working directory for the container to the app's root directory
+# Create app directory
 WORKDIR /usr/src/app
 
-# Copy the package.json and package-lock.json (or yarn.lock) files to the container
-# 'package*.json' wildcard is used to ensure both package.json AND package-lock.json are copied
+# Copy package.json and package-lock.json (if available)
 COPY package*.json ./
 
 # Install app dependencies
 RUN npm install
 
-# Copy the rest of the application code to the container
+# Copy the rest of the application code
 COPY . .
 
-# set container environments variables and map them to the host OS
+# Expose the port your app runs on
 EXPOSE 3000
 
-# init server by running package.json commands
+# Healthcheck to ensure container is healthy
+HEALTHCHECK --interval=30s --timeout=10s \
+  CMD curl -fs http://localhost:3000 || exit 1
+
+# Command to run the application
 CMD [ "npm", "start" ]

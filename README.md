@@ -1,32 +1,54 @@
-# A basic Ready-to-use express server for building RESTful APIs
+# Ready-to-Use Express Server for Building RESTful APIs
 
-## Pre-requirements 📋
+A basic Express server template for quickly building RESTful APIs using Node.js and TypeScript.
 
-[nodejs](https://nodejs.org/es/) - a cross-platform, open-source server JavaScript runtime environment
-[docker](https://www.docker.com) - Automates the deployment of applications within software containers
+## Project Description
+
+This project provides a boilerplate Express server setup with TypeScript for building RESTful APIs. It includes configuration for local development and Docker deployment.
+
+## Prerequisites 📋
+
+- [Node.js](https://nodejs.org/) - JavaScript runtime
+- [Docker](https://www.docker.com/) - Containerization platform
 
 ## Installation and Deployment 🔧📦
 
-_At the root of the project, create a .env file that must contains the environment variables as shown in the .env.example:_ 
+_At the root of the project, create a .env file that must contains the environment variables as shown in the .env.example:_
 
-### local->
+1. **Local Development:**
 
-```
-$ npm install
-$ npm start
-```
+   - Clone the repository and navigate to the project directory.
+   - Create a `.env` file based on `.env.example` with necessary environment variables.
+   - Install dependencies and start the server:
 
-### docker->
+     ```bash
+     npm install
+     npm start
+     ```
 
-_Build the Docker image by running the following command in the root of your project directory_
+2. **Using Docker:**
 
-```
-$ docker-compose up --build
-```
+   - Build and run the Docker image:
 
-## built using 🛠️
+     ```bash
+     docker build -t my-node-app-name .
+     ```
 
-- [Node.js](https://nodejs.org/es/) - a cross-platform, open-source server JavaScript runtime environment
-- [TypeScript](https://www.typescriptlang.org/) - a strongly typed programming language that builds on JavaScript.
-- [Express](https://expressjs.com/es/) - a Node.js web application Infrastructure
-- [Winston](https://github.com/winstonjs/winston) - A logger for express server
+   - run the Docker image:
+
+      ```bash
+      docker run -p 3000:3000 my-node-app-name
+      ```
+
+   - the server will be available at http://localhost:3000
+
+## Built With 🛠️
+
+- [Node.js](https://nodejs.org/) - Cross-platform JavaScript runtime
+- [TypeScript](https://www.typescriptlang.org/) - Typed superset of JavaScript
+- [Express](https://expressjs.com/) - Web framework for Node.js
+- [Winston](https://github.com/winstonjs/winston) - Logging library for Node.js
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.

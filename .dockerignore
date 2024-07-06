@@ -1,6 +1,80 @@
+# Node modules and dependencies
 node_modules
 npm-debug.log
+
+# Production build output
 /dist
+/build
+/target
+
+# TypeScript build information
 *.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker files
 .dockerignore
+Dockerfile
+Dockerfile.*
+
+# OS generated files
 .DS_Store
+*.swp
+*.swo
+*.bak
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Test and coverage directories
+coverage
+test-output
+.nyc_output
+
+# IDE specific files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Cache used by TypeScript's incremental build
+*.tsbuildinfo
+
+# Parcel bundler cache
+.cache
+.parcel-cache
+
+# Storybook build directory
+storybook-static
+
+# MacOS related files
+.AppleDouble
+.LSOverride

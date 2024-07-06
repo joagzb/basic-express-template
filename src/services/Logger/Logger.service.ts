@@ -1,6 +1,6 @@
 import * as winston from 'winston';
 import * as expressWinston from 'express-winston';
-import Configuration from '../config/config';
+import ConfigService from '../../config/config';
 
 /** ==========================================
  *
@@ -12,9 +12,10 @@ export class Logger {
   private static instance: Logger;
   public logger: winston.Logger;
   private _expressWinstonConfig: expressWinston.LoggerOptions;
+  private configService: ConfigService;
 
-  private FORMAT_TIME = 'YYYY-MM-DD HH:mm:ss';
-  private TIME_ZONE = 'America/Argentina/Buenos_Aires';
+  private FORMAT_TIME: string;
+  private TIME_ZONE: string;
 
   // SINGLETON
   public static getInstance(): Logger {
@@ -27,6 +28,10 @@ export class Logger {
 
   // CTOR
   constructor() {
+    this.configService = ConfigService.getInstance();
+    this.FORMAT_TIME = this.configService.getConfig().timezone.FORMAT_TIME;
+    this.TIME_ZONE = this.configService.getConfig().timezone.TIMEZONE;
+
     this.logger = winston.createLogger({
       level: this.initLevel(),
       levels: winston.config.syslog.levels,
@@ -54,7 +59,7 @@ export class Logger {
     @returns string representating minimum level that Winston logger must print
   */
   private initLevel(): string {
-    return Configuration.getConfig().logging.MIN_LEVEL;
+    return this.configService.getConfig().logging.MIN_LEVEL || 'info';
   }
 
   /**

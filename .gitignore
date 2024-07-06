@@ -3,6 +3,8 @@
 .vscode/
 *.iml
 *.project
+*.sublime-workspace
+*.sublime-project
 
 # Dependency directories
 node_modules
@@ -10,10 +12,14 @@ jspm_packages
 
 # dotenv environment variables file
 .env
+.env.local
+.env.*.local
 
 # Transpiled JavaScript files from Typescript
 dist
 build
+target/
+out/
 *.lock
 
 # Logs
@@ -42,8 +48,6 @@ lib-cov
 coverage
 test-output
 storage/
-
-# nyc test coverage
 .nyc_output
 
 # Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
@@ -61,6 +65,13 @@ build/Release
 # OSX
 .AppleDouble
 .LSOverride
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Linux
 .cups
@@ -78,15 +89,6 @@ typings
 .eslintcache
 
 # System files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Optional REPL history
 .node_repl_history
 
 # Output of 'npm pack'
@@ -97,3 +99,31 @@ Thumbs.db
 
 # Cache used by TypeScript's incremental build
 *.tsbuildinfo
+
+# Parcel bundler cache
+.cache
+.parcel-cache
+
+# Storybook build directory
+storybook-static
+
+# MacOS related files
+*.swp
+*.swo
+
+# Windows related files
+*.bak
+
+# Docker
+docker-compose.override.yml
+
+# Firebase cache
+.firebaserc
+.firebase/
+
+# JetBrains IDEs
+.idea/
+
+# pnpm (alternative package manager)
+pnpm-lock.yaml
+.pnpm-store

@@ -2,6 +2,17 @@ export interface AppConfig {
   server: ServerConfig;
   database: DBConnectionConfig;
   logging: LoggingConfig;
+  timezone: TimezoneConfig;
+}
+
+/** ========================================================
+ *
+ * Timezone configurations models
+ *
+ ======================================================== */
+interface TimezoneConfig {
+  TIMEZONE: string;
+  FORMAT_TIME: string;
 }
 
 /** ========================================================

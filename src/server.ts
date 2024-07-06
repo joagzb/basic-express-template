@@ -2,21 +2,24 @@ import express from 'express';
 import cors from 'cors';
 import userRouter from './api/user/user.routes';
 import * as expressWinston from 'express-winston';
-import {Logger} from './services/Logger.service';
+import {Logger} from './services/Logger/Logger.service';
 import {errorHandler} from './middlewares/ErrorHandler.middleware';
 import {getPackageInfo, getRunningHostAndPort, listObjectProperties} from './helpers/ServerMessages.utils';
-import Configuration from './config/config';
+import ConfigService from './config/config';
 
 class App {
   // PROPERTIES
   private server: express.Application;
   private loggerInstance = Logger.getInstance();
-  private defaultConfig = Configuration.getConfig();
+  private configService: ConfigService;
 
   // CTOR
   constructor() {
     // Create a new express app
     this.server = express();
+
+    // get global configuration
+    this.configService = ConfigService.getInstance();
 
     // initializations
     this.initConfiguration();
@@ -49,22 +52,22 @@ class App {
    * sets the express server configurations
    */
   private initConfiguration() {
-    this.server.set('host', this.defaultConfig.server.HOST);
-    this.server.set('port', this.defaultConfig.server.PORT);
+    this.server.set('host', this.configService.getConfig().server.HOST);
+    this.server.set('port', this.configService.getConfig().server.PORT);
     this.server.disable('x-powered-by');
   }
 
   private showServerUpMessages() {
-    this.loggerInstance.logger.debug(`server .env variables: \n${listObjectProperties(this.defaultConfig)}`);
-
+    this.loggerInstance.logger.debug(`Server .env variables: \n${listObjectProperties(this.configService.getConfig())}`);
     this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(this.server.get('host'), this.server.get('port'))}`);
   }
 
   /**
    * starts the express server
    */
-  public initServer() {
-    this.server.listen(this.server.get('port'), () => {
+  public startServer() {
+    const port = this.server.get('port');
+    this.server.listen(port, () => {
       this.showServerUpMessages();
     });
   }

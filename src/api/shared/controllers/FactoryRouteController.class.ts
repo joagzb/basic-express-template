@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import Configuration from '../../../config/config';
+import ConfigService from '../../../config/config';
 import {IBasicController} from './IBasicController.interface';
 
 /** ========================================================
@@ -11,13 +11,15 @@ export abstract class FactoryRouteController<T extends IBasicController> {
   // PROPERTIES
   public readonly router: Router;
   public readonly routeName;
+  protected configService: ConfigService;
   protected controller: T;
 
   // CTOR
   public constructor(controller: T) {
+    this.configService = ConfigService.getInstance();
     this.router = Router();
     this.controller = controller;
-    this.routeName = `${Configuration.getConfig().server.GLOBAL_URL_PREFIX}/${controller.routeName}`;
+    this.routeName = `${this.configService.getConfig().server.GLOBAL_URL_PREFIX}/${controller.routeName}`;
     this.initMiddlewares();
     this.initRoutes();
   }
