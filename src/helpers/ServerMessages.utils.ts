@@ -46,7 +46,7 @@ export const getPackageInfo = (): string => {
   // Return the package info in a cool style
   return `
   \u001b[36m==========  ${name} v${version}  ==========\u001b[0m
-  Author: ${author}
+  Author: ${author.name}
   License: ${license}
   `;
 };

@@ -1,10 +1,9 @@
-import {Handler, Request, Response} from 'express';
-import {ICrudController} from '../shared/controllers/ICrudController.interface';
+import {Request, Response} from 'express';
+import {ICrudController} from '../../core/controllers/ICrudController.interface';
 import {UserService} from './user.service';
 
 export class UserController implements ICrudController {
   // PROPERTIES
-  routeName = 'users';
   private userService: UserService;
 
   // CTOR

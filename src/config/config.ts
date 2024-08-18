@@ -27,7 +27,7 @@ export default class ConfigService {
       ENABLED: true,
     },
     server: {
-      NODE_ENV: (process.env.NODE_ENV || 'development') as "development" | "production",
+      NODE_ENV: (process.env.NODE_ENV || 'development') as 'development' | 'production',
       GLOBAL_URL_PREFIX: process.env.URL_PREFIX || '/api',
       HOST: process.env.HOST || 'localhost',
       PORT: Number.parseInt(process.env.PORT || '3000'),

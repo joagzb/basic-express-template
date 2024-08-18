@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import userRouter from './api/user/user.routes';
+import routes from './api';
 import * as expressWinston from 'express-winston';
 import {Logger} from './services/Logger/Logger.service';
 import {errorHandler} from './middlewares/ErrorHandler.middleware';
@@ -31,7 +31,7 @@ class App {
    * configures and mount the routes for the express app
    */
   private initRoutes(): void {
-    this.server.use(userRouter.routeName, userRouter.router);
+    this.server.use(routes);
   }
 
   /**

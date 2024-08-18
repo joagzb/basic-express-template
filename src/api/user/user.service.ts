@@ -2,7 +2,7 @@ import {UserInterface} from './user.model';
 import {v4 as uuidv4} from 'uuid';
 import {Request} from 'express';
 import {calculateAge} from './user.util';
-import {IBasicService} from '../shared/services/IBasicService.interface';
+import {IBasicService} from '../../core/services/IBasicService.interface';
 
 export class UserService implements IBasicService {
   // CTOR

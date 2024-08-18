@@ -30,8 +30,8 @@ COPY --from=builder /usr/src/app/package*.json ./
 RUN npm install --production
 
 # Expose the port your app runs on
-ENV NODE_ENV production
-ENV PORT 3000
+ENV NODE_ENV=production
+ENV PORT=3000
 EXPOSE $PORT
 
 # Command to run the application

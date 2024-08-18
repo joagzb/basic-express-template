@@ -1,4 +1,4 @@
-import {Handler, Request, Response} from 'express';
+import {Request, Response} from 'express';
 import {IBasicController} from './IBasicController.interface';
 
 export interface ICrudController extends IBasicController {

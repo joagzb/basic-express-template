@@ -1,5 +1,4 @@
-import {Router} from 'express';
-import {FactoryRouteController} from '../shared/controllers/FactoryRouteController.class';
+import {FactoryRouteController} from '../../core/controllers/FactoryRouteController.class';
 import {UserController} from './user.controller';
 
 class UserRoutes extends FactoryRouteController<UserController> {
