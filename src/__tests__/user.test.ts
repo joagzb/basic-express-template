@@ -15,7 +15,7 @@ describe('test stack ', () => {
     const dateToTest = '2000-05-10';
     const dateFormatted: Date = DateFormatterUtil.yyyymmdd_string_to_date(dateToTest);
 
-    expect(dateFormatted).toEqual(new Date(2000, 5, 10));
+    expect(dateFormatted).toEqual(new Date(2000, 4, 10));
   });
 
   test('calculate the user age', () => {

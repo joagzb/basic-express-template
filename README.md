@@ -46,6 +46,14 @@ _At the root of the project, create a .env file that must contains the environme
 
    - the server will be available at http://localhost:3000
 
+## Running Tests
+
+Execute the unit tests with:
+
+```bash
+npm test
+```
+
 ## Built With 🛠️
 
 - [Node.js](https://nodejs.org/) - Cross-platform JavaScript runtime

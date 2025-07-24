@@ -6,7 +6,7 @@ import path from 'path';
 const router = Router();
 const GLOBAL_URL_PREFIX = ConfigService.getInstance().getConfig().server.GLOBAL_URL_PREFIX;
 
-const dinamicallyConfigureRoutes = async () => {
+const dynamicallyConfigureRoutes = async () => {
   const dirs = fs.readdirSync(__dirname);
   for (const dir of dirs) {
     const dirPath = path.join(__dirname, dir);
@@ -51,5 +51,5 @@ const appendControllerRoute = async (dirPath: string, routeFile: string | undefi
 };
 
 // Initialize routes
-dinamicallyConfigureRoutes().catch(err => console.error(`Error initializing routes: ${err}`));
+dynamicallyConfigureRoutes().catch(err => console.error(`Error initializing routes: ${err}`));
 export default router;
