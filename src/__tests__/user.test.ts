@@ -3,7 +3,7 @@ import {calculateAge} from 'api/user/user.util';
 import {UserInterface} from '../api/user/user.model';
 import DateFormatterUtil from '../helpers/DateFormatter.util';
 
-describe('test stack ', () => {
+describe('test stack', () => {
   test('cast a Date object to string dd-mm-yyyy format', () => {
     const dateToTest: Date = new Date(2000, 5, 10);
     const dateFormatted: string = DateFormatterUtil.date_to_ddmmyyyy_string(dateToTest);
