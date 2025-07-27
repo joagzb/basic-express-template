@@ -6,14 +6,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "jest --watchAll --verbose",
+    "test": "jest --runInBand --verbose",
     "prettier": "npx prettier --write .",
     "lint": "eslint --ext .ts . --fix",
-    "lint:fix": "pnpm run prettier && pnpm run lint",
+    "lint:fix": "npm run prettier && npm run lint",
     "build": "tsc",
     "serve": "tsc-watch --onSuccess \"node dist/index.js\"",
-    "start": "pnpm run build && pnpm run serve",
-    "start:prod": "pnpm run build && node dist/index.js"
+    "start": "npm run serve",
+    "start:prod": "npm run build && node dist/index.js"
   },
   "author": {
     "name": "Joaquin Gonzalez Budino",

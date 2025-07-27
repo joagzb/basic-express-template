@@ -30,6 +30,12 @@ _At the root of the project, create a .env file that must contains the environme
      npm start
      ```
 
+     The `start` script runs the development server using TypeScript watcher. For a production build use:
+
+     ```bash
+     npm run start:prod
+     ```
+
 2. **Using Docker:**
    - Build and run the Docker image:
 
