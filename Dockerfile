@@ -1,38 +1,34 @@
-# Use the official Node.js image as the build environment
-FROM node:16-slim AS builder
-
-# Create app directory
+# 🎯 Build stage
+FROM node:20.13.1-bookworm-slim AS builder
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json
+# Leverage Docker cache
 COPY package*.json ./
+RUN npm ci
 
-# Install app dependencies
-RUN npm install
-
-# Copy the rest of the application code
-COPY . .
-
-# Build the TypeScript code
+COPY tsconfig.json ./
+COPY src/ ./src/
 RUN npm run build
 
-# Use a smaller Node.js image for the runtime environment
-FROM node:16-slim
-
-# Create app directory
+# 🧪 Runtime stage
+FROM node:20.13.1-bookworm-slim
 WORKDIR /usr/src/app
 
-# Copy only the build output and package.json to the runtime image
+# Update OS packages first
+RUN apt-get update \
+  && apt-get upgrade -y \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm ci --only=production
+
 COPY --from=builder /usr/src/app/dist ./dist
-COPY --from=builder /usr/src/app/package*.json ./
 
-# Install only production dependencies
-RUN npm install --production
+# Optional: use non-root user for security
+USER node
 
-# Expose the port your app runs on
 ENV NODE_ENV=production
 ENV PORT=3000
-EXPOSE $PORT
+EXPOSE 3000
 
-# Command to run the application
 CMD ["node", "dist/index.js"]
