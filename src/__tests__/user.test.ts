@@ -29,9 +29,7 @@ describe('test stack', () => {
     const userAge: number = calculateAge(newUser);
     const today = new Date();
     const birth = new Date(2000, 5, 3);
-    const expectedAge = Math.floor(
-      (today.getTime() - birth.getTime()) / (1000 * 3600 * 24) / 365.25,
-    );
+    const expectedAge = Math.floor((today.getTime() - birth.getTime()) / (1000 * 3600 * 24) / 365.25);
 
     expect(userAge).toBe(expectedAge);
   });
