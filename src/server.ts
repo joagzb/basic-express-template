@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import routes from './api';
+import routes from './api/index';
 import * as expressWinston from 'express-winston';
 import {Logger} from './services/Logger/Logger.service';
 import {errorHandler} from './middlewares/ErrorHandler.middleware';
@@ -58,8 +58,12 @@ class App {
   }
 
   private showServerUpMessages() {
+    const host = this.server.get('host');
+    const port = this.server.get('port');
+    const prefix = this.configService.getConfig().server.GLOBAL_URL_PREFIX;
+
     this.loggerInstance.logger.debug(`Server .env variables: \n${listObjectProperties(this.configService.getConfig())}`);
-    this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(this.server.get('host'), this.server.get('port'))}`);
+    this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(host, port, prefix)}`);
   }
 
   /**

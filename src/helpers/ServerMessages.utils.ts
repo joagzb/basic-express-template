@@ -7,11 +7,14 @@ import {resolve} from 'path';
   @param {string} port PORT running server
   @returns string that includes a message indicating that the server is running at the specified host and port
 */
-export const getRunningHostAndPort = (host: string, port: string): string => {
+export const getRunningHostAndPort = (host: string, port: string, prefix: string): string => {
   return `
   ==================================================
   Server running at http://${host}:${port}
   ==================================================
+
+  Check the server status by making a GET request to:
+  http://${host}:${port}${prefix}/health/ping
   `;
 };
 

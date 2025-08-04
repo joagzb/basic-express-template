@@ -55,3 +55,11 @@ Dockerfile.*
 .vscode/
 *.sublime-workspace
 *.sublime-project
+
+# Snapshot tests
+**/*.snap
+
+# Build artifacts
+*.map
+**/*.min.js
+**/*.min.css

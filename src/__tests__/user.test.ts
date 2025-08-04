@@ -3,7 +3,7 @@ import {calculateAge} from 'api/user/user.util';
 import {UserInterface} from '../api/user/user.model';
 import DateFormatterUtil from '../helpers/DateFormatter.util';
 
-describe('test stack ', () => {
+describe('test stack', () => {
   test('cast a Date object to string dd-mm-yyyy format', () => {
     const dateToTest: Date = new Date(2000, 5, 10);
     const dateFormatted: string = DateFormatterUtil.date_to_ddmmyyyy_string(dateToTest);
@@ -15,7 +15,7 @@ describe('test stack ', () => {
     const dateToTest = '2000-05-10';
     const dateFormatted: Date = DateFormatterUtil.yyyymmdd_string_to_date(dateToTest);
 
-    expect(dateFormatted).toEqual(new Date(2000, 5, 10));
+    expect(dateFormatted).toEqual(new Date(2000, 4, 10));
   });
 
   test('calculate the user age', () => {
@@ -27,7 +27,10 @@ describe('test stack ', () => {
     };
 
     const userAge: number = calculateAge(newUser);
+    const today = new Date();
+    const birth = new Date(2000, 5, 3);
+    const expectedAge = Math.floor((today.getTime() - birth.getTime()) / (1000 * 3600 * 24) / 365.25);
 
-    expect(userAge).toBe(22);
+    expect(userAge).toBe(expectedAge);
   });
 });
