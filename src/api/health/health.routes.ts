@@ -7,7 +7,7 @@ class HealthRoutes extends FactoryRouteController<HealthController> {
   }
 
   protected initRoutes(): void {
-    this.router.get('/healthBreath', (req, res) => this.controller.healthBreath(req, res));
+    this.router.get('/ping', (req, res) => this.controller.ping(req, res));
   }
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   protected initMiddlewares(): void {}

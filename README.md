@@ -38,7 +38,7 @@ _At the root of the project, create a .env file that must contains the environme
      npm run start:prod
      ```
 
-     After the server starts, verify it by visiting [http://localhost:3000/api/health/healthBreath](http://localhost:3000/api/health/healthBreath).
+     After the server starts, verify it by visiting [http://localhost:3000/api/health/ping](http://localhost:3000/api/health/ping).
 
 2. **Using Docker:**
    - Build and run the Docker image:

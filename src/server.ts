@@ -63,8 +63,7 @@ class App {
     const prefix = this.configService.getConfig().server.GLOBAL_URL_PREFIX;
 
     this.loggerInstance.logger.debug(`Server .env variables: \n${listObjectProperties(this.configService.getConfig())}`);
-    this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(host, port)}`);
-    this.loggerInstance.logger.info(`HealthBreath endpoint: http://${host}:${port}${prefix}/health/healthBreath`);
+    this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(host, port, prefix)}`);
   }
 
   /**
