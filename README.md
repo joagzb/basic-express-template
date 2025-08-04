@@ -38,6 +38,8 @@ _At the root of the project, create a .env file that must contains the environme
      npm run start:prod
      ```
 
+     After the server starts, verify it by visiting [http://localhost:3000/api/health/healthBreath](http://localhost:3000/api/health/healthBreath).
+
 2. **Using Docker:**
    - Build and run the Docker image:
 
@@ -52,6 +54,7 @@ _At the root of the project, create a .env file that must contains the environme
      ```
 
    - the server will be available at http://localhost:3000
+   - check the backend health at http://localhost:3000/api/health/healthBreath
 
 ## Running Tests
 
