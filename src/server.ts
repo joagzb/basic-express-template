@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import routes from './api';
+import routes from './api/index';
 import * as expressWinston from 'express-winston';
 import {Logger} from './services/Logger/Logger.service';
 import {errorHandler} from './middlewares/ErrorHandler.middleware';

@@ -1,4 +1,4 @@
-import ConfigService from '../config/config.js';
+import ConfigService from '../config/config';
 import {Router} from 'express';
 import fs from 'fs';
 import path from 'path';

@@ -1,10 +1,10 @@
-import js from '@eslint/js';
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
-import prettierPlugin from 'eslint-plugin-prettier';
-import jestPlugin from 'eslint-plugin-jest';
+const js = require('@eslint/js');
+const tsParser = require('@typescript-eslint/parser');
+const tsPlugin = require('@typescript-eslint/eslint-plugin');
+const prettierPlugin = require('eslint-plugin-prettier');
+const jestPlugin = require('eslint-plugin-jest');
 
-export default [
+module.exports = [
   js.configs.recommended,
 
   {
@@ -21,8 +21,8 @@ export default [
         process: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
-        console: 'readonly'
-      }
+        console: 'readonly',
+      },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
@@ -36,8 +36,8 @@ export default [
       'spaced-comment': ['error', 'always'],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-empty-function': 'error',
-      '@typescript-eslint/no-unused-vars': 'warn'
-    }
+      '@typescript-eslint/no-unused-vars': 'warn',
+    },
   },
   {
     files: ['**/*.test.ts'],
@@ -51,14 +51,14 @@ export default [
         expect: 'readonly',
         beforeEach: 'readonly',
         afterEach: 'readonly',
-      }
+      },
     },
     rules: {
       'jest/no-disabled-tests': 'warn',
       'jest/no-focused-tests': 'error',
       'jest/no-identical-title': 'error',
       'jest/prefer-to-have-length': 'warn',
-      'jest/valid-expect': 'error'
-    }
-  }
+      'jest/valid-expect': 'error',
+    },
+  },
 ];
