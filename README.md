@@ -8,7 +8,7 @@ This project provides a boilerplate Express server setup with TypeScript for bui
 
 ## Prerequisites 📋
 
-- [Node.js](https://nodejs.org/) - JavaScript runtime
+- [Node.js](https://nodejs.org/) (v20+ recommended) - JavaScript runtime
 - [Docker](https://www.docker.com/) - Containerization platform
 
 ## Installation and Deployment 🔧📦
@@ -19,6 +19,8 @@ _Under src/api, create a new folder that has to contain all the files representi
 2. <featureName>.controller.ts - controller where 'featureName' will be the class name. E.g. user.controller.ts -> class UserController
 
 _At the root of the project, create a .env file that must contains the environment variables as shown in the .env.example:_
+
+> **Note:** The TypeScript sources compile to CommonJS. When importing local files, omit the file extension (e.g. `import foo from './foo'`).
 
 1. **Local Development:**
    - Clone the repository and navigate to the project directory.
