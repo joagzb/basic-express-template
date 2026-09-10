@@ -1,5 +1,4 @@
 import {RuntimeAppConfig} from '../../config';
-import {INPUT_CONSTRAINTS} from '../../application/shared/validation';
 
 const jsonContent = (schema: Readonly<Record<string, unknown>>, example?: unknown) => ({
   'application/json': {
@@ -18,7 +17,7 @@ const userIdParameter = {
   in: 'path',
   required: true,
   description: 'User identifier',
-  schema: {type: 'string', ...INPUT_CONSTRAINTS.id},
+  schema: {type: 'string'},
 };
 
 export const createOpenApiDocument = (config: RuntimeAppConfig) =>
@@ -35,7 +34,6 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
               description: 'Application is healthy',
               content: jsonContent({$ref: '#/components/schemas/HealthResponseDto'}, {status: 'ok'}),
             },
-            '400': errorResponse,
           },
         },
       },
@@ -98,8 +96,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           },
           responses: {
             '200': {
-              description: 'Persisted user wrapped in the create operation response',
-              content: jsonContent({$ref: '#/components/schemas/CreateUserResponseDto'}),
+              description: 'Persisted user',
+              content: jsonContent({$ref: '#/components/schemas/UserResponseDto'}),
             },
             '400': errorResponse,
           },
@@ -108,13 +106,13 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
       '/users/{id}': {
         get: {
           summary: 'Find a user by identifier',
-          description: 'Queries the configured persistence provider and returns the identifier of the matching user.',
+          description: 'Queries the configured persistence provider and returns the matching user.',
           security: [{bearerAuth: []}],
           parameters: [userIdParameter],
           responses: {
             '200': {
-              description: 'Lookup operation response containing the persisted user identifier',
-              content: jsonContent({$ref: '#/components/schemas/FindUserResponseDto'}),
+              description: 'Persisted user',
+              content: jsonContent({$ref: '#/components/schemas/UserResponseDto'}),
             },
             '400': errorResponse,
             '404': errorResponse,
@@ -122,7 +120,7 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
         },
         patch: {
           summary: 'Update a user',
-          description: 'Attempts to update the persisted user and returns an operation acknowledgement.',
+          description: 'Updates and returns the persisted user, or null when the identifier does not exist.',
           security: [{bearerAuth: []}],
           parameters: [userIdParameter],
           requestBody: {
@@ -131,22 +129,19 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           },
           responses: {
             '200': {
-              description: 'Update operation acknowledgement',
-              content: jsonContent({$ref: '#/components/schemas/UpdateUserResponseDto'}, {function: 'update'}),
+              description: 'Updated user or null',
+              content: jsonContent({allOf: [{$ref: '#/components/schemas/UserResponseDto'}], nullable: true}),
             },
             '400': errorResponse,
           },
         },
         delete: {
           summary: 'Delete a user',
-          description: 'Attempts to delete the persisted user and returns an operation acknowledgement.',
+          description: 'Attempts to delete the persisted user and returns an empty response.',
           security: [{bearerAuth: []}],
           parameters: [userIdParameter],
           responses: {
-            '200': {
-              description: 'Delete operation acknowledgement',
-              content: jsonContent({$ref: '#/components/schemas/DeleteUserResponseDto'}, {function: 'delete'}),
-            },
+            '201': {description: 'Delete request completed'},
             '400': errorResponse,
           },
         },
@@ -179,8 +174,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           required: ['email', 'password'],
           properties: {
-            email: {type: 'string', format: 'email', ...INPUT_CONSTRAINTS.email},
-            password: {type: 'string', format: 'password', ...INPUT_CONSTRAINTS.password},
+            email: {type: 'string', format: 'email'},
+            password: {type: 'string', format: 'password'},
           },
         },
         LoginResponseDto: {
@@ -197,11 +192,11 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           required: ['name', 'surname', 'dateOfBirth', 'email', 'password'],
           properties: {
-            name: {type: 'string', ...INPUT_CONSTRAINTS.userName},
-            surname: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            name: {type: 'string'},
+            surname: {type: 'string'},
             dateOfBirth: {type: 'string', format: 'date'},
-            email: {type: 'string', format: 'email', ...INPUT_CONSTRAINTS.email},
-            password: {type: 'string', format: 'password', ...INPUT_CONSTRAINTS.password},
+            email: {type: 'string', format: 'email'},
+            password: {type: 'string', format: 'password'},
           },
         },
         CreateUserRequestDto: {
@@ -209,8 +204,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           required: ['name', 'surname', 'dateOfBirth'],
           properties: {
-            name: {type: 'string', ...INPUT_CONSTRAINTS.userName},
-            surname: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            name: {type: 'string'},
+            surname: {type: 'string'},
             dateOfBirth: {type: 'string', format: 'date'},
           },
         },
@@ -219,34 +214,10 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           minProperties: 1,
           properties: {
-            name: {type: 'string', ...INPUT_CONSTRAINTS.userName},
-            surname: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            name: {type: 'string'},
+            surname: {type: 'string'},
             dateOfBirth: {type: 'string', format: 'date'},
           },
-        },
-        FindUserResponseDto: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['function', 'id'],
-          properties: {function: {type: 'string', enum: ['getById']}, id: {type: 'string'}},
-        },
-        CreateUserResponseDto: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['function', 'data'],
-          properties: {function: {type: 'string', enum: ['create']}, data: {$ref: '#/components/schemas/UserResponseDto'}},
-        },
-        UpdateUserResponseDto: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['function'],
-          properties: {function: {type: 'string', enum: ['update']}},
-        },
-        DeleteUserResponseDto: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['function'],
-          properties: {function: {type: 'string', enum: ['delete']}},
         },
         ListUsersResponseDto: {
           type: 'array',

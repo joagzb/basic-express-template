@@ -1,7 +1,7 @@
-import { createClient } from 'redis';
-import { testConfig } from '../config/test-config';
-import { RedisConnection } from '../infrastructure/cache/redis.connection';
-import { createLogger } from '../infrastructure/logging/logger.service';
+import {createClient} from 'redis';
+import {testConfig} from '../config/test-config';
+import {RedisConnection} from '../infrastructure/cache/redis.connection';
+import {createLogger} from '../infrastructure/logging/logger.service';
 
 jest.mock('redis', () => ({createClient: jest.fn()}));
 

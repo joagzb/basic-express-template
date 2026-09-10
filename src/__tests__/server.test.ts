@@ -1,14 +1,14 @@
-import { Express } from 'express';
-import { EventEmitter } from 'node:events';
-import { Server as HttpServer } from 'node:http';
-import { DataSource } from 'typeorm';
-import { createApp } from '../app';
-import { testConfig } from '../config/test-config';
-import { RedisConnection } from '../infrastructure/cache/redis.connection';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
-import { withFibonacciRetry } from '../infrastructure/startup/retry.strategy';
-import { bootstrapServer, ServerRuntime } from '../server';
+import {Express} from 'express';
+import {EventEmitter} from 'node:events';
+import {Server as HttpServer} from 'node:http';
+import {DataSource} from 'typeorm';
+import {createApp} from '../app';
+import {testConfig} from '../config/test-config';
+import {RedisConnection} from '../infrastructure/cache/redis.connection';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
+import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
+import {bootstrapServer, ServerRuntime} from '../server';
 
 describe('Server startup lifecycle', () => {
   test('cleans initialized dependencies when the HTTP listener fails', async () => {

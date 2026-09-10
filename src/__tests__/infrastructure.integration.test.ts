@@ -1,7 +1,7 @@
-import { loadConfig } from '../config';
-import { RedisConnection } from '../infrastructure/cache/redis.connection';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { createPostgresDataSource } from '../infrastructure/persistence/postgres/data-source';
+import {loadConfig} from '../config';
+import {RedisConnection} from '../infrastructure/cache/redis.connection';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {createPostgresDataSource} from '../infrastructure/persistence/postgres/data-source';
 
 const integrationTest = process.env.RUN_INTEGRATION_TESTS === 'true' ? test : test.skip;
 

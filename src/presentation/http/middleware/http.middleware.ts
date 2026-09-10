@@ -1,7 +1,6 @@
-import { ErrorRequestHandler, RequestHandler } from 'express';
-import { ValidationError } from '../../../application/shared/validation';
-import { LoggerService } from '../../../infrastructure/logging/logger.interface';
-import { AppError } from '../errors/app-error';
+import {ErrorRequestHandler, RequestHandler} from 'express';
+import {AppError} from '../errors/app-error';
+import { LoggerService } from 'infrastructure/logging/logger.interface';
 
 export const createNotFoundHandler = (): RequestHandler => (req, _res, next) => {
   next(new AppError(404, 'NOT_FOUND', `Route ${req.method} ${req.path} was not found`));
@@ -34,11 +33,6 @@ export const createErrorHandler =
   (error, req, res, _next) => {
     if (isMalformedJsonError(error)) {
       res.status(400).json(buildErrorBody('INVALID_JSON', 'Request body contains malformed JSON'));
-      return;
-    }
-
-    if (error instanceof ValidationError) {
-      res.status(400).json(buildErrorBody(error.code, error.message, {issues: error.issues}));
       return;
     }
 

@@ -1,11 +1,11 @@
-import { DataSource, Repository } from 'typeorm';
-import { parseConfig, PersistenceProvider } from '../config';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
-import { TypeOrmUserRepository } from '../infrastructure/persistence/postgres/typeorm-user.repository';
-import { UserEntity } from '../infrastructure/persistence/postgres/user.entity';
-import { selectUserPersistence } from '../infrastructure/persistence/select-user-persistence';
-import { withFibonacciRetry } from '../infrastructure/startup/retry.strategy';
+import {DataSource, Repository} from 'typeorm';
+import {parseConfig, PersistenceProvider} from '../config';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
+import {TypeOrmUserRepository} from '../infrastructure/persistence/postgres/typeorm-user.repository';
+import {UserEntity} from '../infrastructure/persistence/postgres/user.entity';
+import {selectUserPersistence} from '../infrastructure/persistence/select-user-persistence';
+import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
 
 describe('user persistence provider selection', () => {
   test('defaults to PostgreSQL without silently falling back', async () => {

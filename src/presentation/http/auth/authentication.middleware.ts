@@ -1,6 +1,6 @@
-import {NextFunction, Request, RequestHandler, Response} from 'express';
-import {AccessTokenService} from '../../../domain/auth/auth';
-import {AppError} from '../errors/app-error';
+import { NextFunction, Request, RequestHandler, Response } from 'express';
+import { ITokenService } from '../../../domain/auth/auth';
+import { AppError } from '../errors/app-error';
 
 export interface AuthenticatedPrincipal {
   readonly subject: string;
@@ -11,7 +11,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export class AuthenticationMiddleware {
-  public constructor(private readonly tokens: AccessTokenService) {}
+  public constructor(private readonly tokens: ITokenService) {}
 
   public readonly handle: RequestHandler = (request: Request, _response: Response, next: NextFunction): void => {
     const authorization = request.header('authorization');

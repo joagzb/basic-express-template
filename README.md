@@ -49,11 +49,11 @@ curl http://localhost:3000/api/users \
   -H "Authorization: Bearer <access-token>"
 ```
 
-Protected user routes are `GET` or `POST /api/users` and `GET`, `PATCH`, or `DELETE /api/users/:id`. Singular `/api/user` paths are not mounted. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
+Protected user routes are `GET` or `POST /api/users` and `GET`, `PATCH`, or `DELETE /api/users/:id`. Create, lookup, and successful update operations return user records; delete returns an empty `201` response. Singular `/api/user` paths are not mounted. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
 
 ## Structure
 
-The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `src/server.ts`. `src/app.ts` builds Express from route definitions and has no listener or external-connection side effects. Application services construct and validate DTOs with typed manual validators; controllers only pass raw HTTP values and map responses. See [Architecture](docs/architecture.md) for dependency rules and [Add an endpoint set](docs/adding-endpoints.md) for the current extension workflow.
+The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `src/server.ts`. The User feature is the reference implementation: DTOs and validators live beside `UserService`, `UserController` only delegates and maps HTTP responses, and `UserRoutes` explicitly declares endpoints. Auth follows the same pattern, while Health uses a small application service without persistence. `src/app.ts` builds Express from injected route definitions and has no listener or external-connection side effects. See [Architecture](docs/architecture.md) and [Add an endpoint set](docs/adding-endpoints.md).
 
 ## Test and build
 

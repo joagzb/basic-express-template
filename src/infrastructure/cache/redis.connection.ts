@@ -1,7 +1,7 @@
-import { createClient, RedisClientType } from 'redis';
-import { AppConfig } from '../../config';
-import { LoggerService } from '../logging/logger.interface';
-import { RedisCommandClient, RedisService } from './redis.service';
+import {createClient, RedisClientType} from 'redis';
+import {AppConfig} from '../../config';
+import {LoggerService} from '../logging/logger.interface';
+import {RedisCommandClient, RedisService} from './redis.service';
 
 export class RedisConnection {
   private readonly client: RedisClientType;

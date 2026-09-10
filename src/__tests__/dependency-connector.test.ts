@@ -1,6 +1,6 @@
-import { testConfig } from '../config/test-config';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { withFibonacciRetry } from '../infrastructure/startup/retry.strategy';
+import {testConfig} from '../config/test-config';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
 
 describe('withFibonacciRetry', () => {
   test('bounds retries and reports the dependency endpoint', async () => {

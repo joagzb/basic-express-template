@@ -1,5 +1,5 @@
-import { setTimeout } from 'node:timers/promises';
-import { LoggerService } from '../logging/logger.interface';
+import {setTimeout} from 'node:timers/promises';
+import {LoggerService} from '../logging/logger.interface';
 
 export interface FibonacciRetryOptions {
   readonly name: string;

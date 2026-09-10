@@ -1,27 +1,31 @@
-import { Router } from 'express';
+import {Router} from 'express';
 import request from 'supertest';
-import { createApp } from '../app';
-import { AuthService } from '../application/auth/auth.service';
-import { UserService } from '../application/users/user.service';
-import { testConfig } from '../config/test-config';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
-import { PasswordService, TokenService } from '../infrastructure/security/security.service';
-import { RouteDefinition } from '../presentation/http/base/base.routes';
-import { createRoutes } from '../presentation/http/base/routes.factory';
-import { AppError } from '../presentation/http/errors/app-error';
-import { createOpenApiDocument } from '../presentation/http/openapi';
+import {createApp} from '../app';
+import {AuthService} from '../application/auth/auth.service';
+import {AuthValidator} from '../application/auth/auth.validator';
+import {HealthService} from '../application/health/health.service';
+import {UserService} from '../application/users/user.service';
+import {UserValidator} from '../application/users/user.validator';
+import {testConfig} from '../config/test-config';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
+import {PasswordService, TokenService} from '../infrastructure/security/security.service';
+import {RouteDefinition} from '../presentation/http/base/base.routes';
+import {createRoutes} from '../presentation/http/base/routes.factory';
+import {AppError} from '../presentation/http/errors/app-error';
+import {createOpenApiDocument} from '../presentation/http/openapi';
 
 const tokenService = new TokenService(testConfig.security.jwtSecret, testConfig.security.jwtExpiresInSeconds);
 
-const createTestApp = (repository = new InMemoryUserRepository(), userService = new UserService(repository), additionalRoutes: RouteDefinition[] = []) =>
+const createTestApp = (repository = new InMemoryUserRepository(), userService = new UserService(repository, new UserValidator()), additionalRoutes: RouteDefinition[] = []) =>
   createApp({
     config: testConfig,
     logger: createLogger(testConfig),
     routes: [
       ...createRoutes({
         userService,
-        authService: new AuthService(repository, new PasswordService(testConfig.security.bcryptRounds), tokenService),
+        authService: new AuthService(repository, new PasswordService(testConfig.security.bcryptRounds), tokenService, new AuthValidator()),
+        healthService: new HealthService(),
         accessTokenService: tokenService,
       }),
       ...additionalRoutes,
@@ -70,8 +74,31 @@ describe('HTTP application', () => {
     expect(duplicate.status).toBe(409);
     expect(duplicate.body.error.code).toBe('EMAIL_ALREADY_REGISTERED');
 
-    const response = await request(app).post('/api/auth/login').send({email: 'ada@example.com', password: 'wrong'}).expect(401);
+    const response = await request(app).post('/api/auth/login').send({email: 'ada@example.com', password: 'wrong!'}).expect(401);
     expect(response.body.error.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  test('enforces the six-character login password boundary over HTTP', async () => {
+    const app = createTestApp();
+    await request(app).post('/api/auth/register').send({name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10', email: 'ada@example.com', password: '123456'}).expect(201);
+
+    const tooShort = await request(app).post('/api/auth/login').send({email: 'ada@example.com', password: '12345'}).expect(400);
+    expect(tooShort.body.error).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: {issues: [{code: 'too_small', message: 'String must contain at least 6 character(s)', path: 'body.password'}]},
+    });
+
+    const boundary = await request(app).post('/api/auth/login').send({email: 'ada@example.com', password: '123456'}).expect(200);
+    expect(boundary.body).toEqual({accessToken: expect.any(String), tokenType: 'Bearer'});
+  });
+
+  test.each([
+    ['/api/auth/register', {name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10', email: 'ada@example.com', password: 'correct-password'}],
+    ['/api/auth/login', {email: 'ada@example.com', password: 'correct-password'}],
+  ])('rejects unexpected query parameters on %s', async (path, body) => {
+    const response = await request(createTestApp()).post(`${path}?unexpected=true`).send(body).expect(400);
+
+    expect(response.body.error.details.issues).toEqual([{code: 'unrecognized_keys', message: "Unrecognized key(s) in object: 'unexpected'", path: 'query'}]);
   });
 
   test('returns one success and one conflict for concurrent duplicate registration', async () => {
@@ -92,7 +119,7 @@ describe('HTTP application', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({name: ' Grace ', surname: ' Hopper ', dateOfBirth: '1906-12-09'})
       .expect(200);
-    expect(created.body.data).toMatchObject({name: 'Grace', surname: 'Hopper', dateOfBirth: '1906-12-09'});
+    expect(created.body).toMatchObject({name: 'Grace', surname: 'Hopper', dateOfBirth: '1906-12-09'});
 
     expect((await request(app).get('/api/users').set('Authorization', `Bearer ${token}`).expect(200)).body).toHaveLength(2);
   });
@@ -116,12 +143,9 @@ describe('HTTP application', () => {
     expect(response.body.error.timestamp).toEqual(expect.any(String));
   });
 
-  test('validates route params and query values in application services', async () => {
+  test('validates route params in application services', async () => {
     const app = createTestApp();
     const token = (await register(app)).body.accessToken as string;
-
-    const queryResponse = await request(app).get('/api/users/example-id?unexpected=true').set('Authorization', `Bearer ${token}`).expect(400);
-    expect(queryResponse.body.error.details.issues).toEqual([{code: 'unrecognized_keys', message: "Unrecognized key(s) in object: 'unexpected'", path: 'query'}]);
 
     const paramsResponse = await request(app).get('/api/users/%20').set('Authorization', `Bearer ${token}`).expect(400);
     expect(paramsResponse.body.error.details.issues[0].path).toBe('params.id');
@@ -138,8 +162,8 @@ describe('HTTP application', () => {
     const token = (await register(app)).body.accessToken as string;
     const created = await request(app).post('/api/users').set('Authorization', `Bearer ${token}`).send({name: 'Grace', surname: 'Hopper', dateOfBirth: '1906-12-09'}).expect(200);
 
-    const id = created.body.data.id as string;
-    expect((await request(app).get(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).expect(200)).body).toEqual({function: 'getById', id});
+    const id = created.body.id as string;
+    expect((await request(app).get(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).expect(200)).body).toEqual(created.body);
 
     const missing = await request(app).get('/api/users/missing-user').set('Authorization', `Bearer ${token}`).expect(404);
     expect(missing.body.error).toMatchObject({code: 'USER_NOT_FOUND', message: 'User missing-user was not found'});
@@ -149,14 +173,17 @@ describe('HTTP application', () => {
     const app = createTestApp();
     const token = (await register(app)).body.accessToken as string;
     const created = await request(app).post('/api/users').set('Authorization', `Bearer ${token}`).send({name: 'Grace', surname: 'Hopper', dateOfBirth: '1906-12-09'}).expect(200);
-    const id = created.body.data.id as string;
+    const id = created.body.id as string;
 
-    expect((await request(app).patch(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).send({surname: 'Murray'}).expect(200)).body).toEqual({function: 'update'});
+    expect((await request(app).patch(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).send({surname: 'Murray'}).expect(200)).body).toMatchObject({
+      id,
+      surname: 'Murray',
+    });
     expect((await request(app).get('/api/users').set('Authorization', `Bearer ${token}`).expect(200)).body).toEqual(
       expect.arrayContaining([expect.objectContaining({id, surname: 'Murray'})]),
     );
 
-    expect((await request(app).delete(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).expect(200)).body).toEqual({function: 'delete'});
+    expect((await request(app).delete(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).expect(201)).text).toBe('');
     expect((await request(app).get(`/api/users/${id}`).set('Authorization', `Bearer ${token}`).expect(404)).body.error.code).toBe('USER_NOT_FOUND');
   });
 
@@ -188,7 +215,7 @@ describe('HTTP application', () => {
     const router = Router();
     router.get('/expected', (_request, _response, next) => next(new AppError(409, 'EXPECTED_ERROR', 'Expected failure')));
     const repository = new InMemoryUserRepository();
-    const app = createTestApp(repository, new UserService(repository), [{path: '/test', router}]);
+    const app = createTestApp(repository, new UserService(repository, new UserValidator()), [{path: '/test', router}]);
 
     expect((await request(app).get('/api/test/expected').expect(409)).body.error.code).toBe('EXPECTED_ERROR');
   });
@@ -199,7 +226,7 @@ describe('HTTP application', () => {
       throw new Error('sensitive implementation detail');
     });
     const repository = new InMemoryUserRepository();
-    const app = createTestApp(repository, new UserService(repository), [{path: '/test', router}]);
+    const app = createTestApp(repository, new UserService(repository, new UserValidator()), [{path: '/test', router}]);
 
     const response = await request(app).get('/api/test/boom').expect(500);
     expect(response.body.error).toMatchObject({code: 'INTERNAL_ERROR', message: 'An unexpected error occurred'});
@@ -210,10 +237,14 @@ describe('HTTP application', () => {
     const document = createOpenApiDocument(testConfig);
     expect(document.paths).toHaveProperty('/auth/register.post');
     expect(document.paths).toHaveProperty('/auth/login.post');
+    expect(document.components.schemas.LoginRequestDto.properties.password.minLength).toBe(6);
     expect(document.paths['/users'].post.requestBody.content['application/json'].example).toEqual({
       name: 'Ada',
       surname: 'Lovelace',
       dateOfBirth: '1815-12-10',
     });
+    expect(document.paths['/users'].post.responses['200'].content['application/json'].schema).toEqual({$ref: '#/components/schemas/UserResponseDto'});
+    expect(document.paths['/users/{id}'].get.responses['200'].content['application/json'].schema).toEqual({$ref: '#/components/schemas/UserResponseDto'});
+    expect(document.paths['/users/{id}'].delete.responses).toHaveProperty('201');
   });
 });

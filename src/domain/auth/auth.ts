@@ -1,16 +1,16 @@
-export interface AccessTokenPayload {
+export interface IAccessTokenPayload {
   readonly sub: string;
 }
 
-export interface AccessTokenService {
+export interface ITokenService {
   sign(subject: string): string;
-  verify(token: string): AccessTokenPayload;
+  verify(token: string): IAccessTokenPayload;
 }
 
-export interface PasswordVerifier {
+export interface IPasswordVerifier {
   compare(password: string, hash: string): Promise<boolean>;
 }
 
-export interface PasswordHasher {
+export interface IPasswordHasher {
   hash(password: string): Promise<string>;
 }

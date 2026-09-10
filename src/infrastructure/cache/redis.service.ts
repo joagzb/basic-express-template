@@ -1,4 +1,4 @@
-import { KeyValue, RedisOperations } from './redis.interface';
+import {KeyValue, RedisOperations} from './redis.interface';
 
 export interface RedisCommandClient {
   readonly isReady: boolean;

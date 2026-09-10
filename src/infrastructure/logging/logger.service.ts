@@ -1,6 +1,6 @@
-import pino, { DestinationStream, Level, Logger } from 'pino';
-import { AppConfig } from '../../config';
-import { LogContext, LoggerService, LogMethod } from './logger.interface';
+import pino, {DestinationStream, Level, Logger} from 'pino';
+import {AppConfig} from '../../config';
+import {LogContext, LoggerService, LogMethod} from './logger.interface';
 
 export interface LoggerDestination {
   write(message: string): unknown;
