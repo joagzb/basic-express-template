@@ -1,80 +1,89 @@
-import express from 'express';
-import cors from 'cors';
-import routes from './api/index';
-import * as expressWinston from 'express-winston';
-import {Logger} from './services/Logger/Logger.service';
-import {errorHandler} from './middlewares/ErrorHandler.middleware';
-import {getPackageInfo, getRunningHostAndPort, listObjectProperties} from './helpers/ServerMessages.utils';
-import ConfigService from './config/config';
+import { LoggerService } from 'application/shared/logger.service';
+import { Server as HttpServer } from 'node:http';
+import { DataSource } from 'typeorm';
+import { AuthService } from './application/auth/auth.service';
+import { UserService } from './application/users/user.service';
+import { logStartupBanner } from './startup-banner';
+import { AppConfig, loadConfig } from './config';
+import { UserRepository } from './domain/users/user.repository';
+import { RedisConnection } from './infrastructure/cache/redis.connection';
+import { createLogger } from './infrastructure/logging/logger';
+import { selectUserPersistence } from './infrastructure/persistence/select-user-persistence';
+import { createDefaultDevelopmentAuthCredential } from './infrastructure/security/development-auth.fixture';
+import { PasswordService, TokenService } from './infrastructure/security/security.service';
+import { DependencyConnector } from './infrastructure/startup/dependency-connector';
+import { createApp } from './presentation/http/app';
 
-class App {
-  // PROPERTIES
-  private server: express.Application;
-  private loggerInstance = Logger.getInstance();
-  private configService: ConfigService;
+export class Server {
+  public static async start(): Promise<void> {
+    const config = loadConfig();
+    const logger = createLogger(config);
+    const connector = new DependencyConnector(logger);
+    const passwords = new PasswordService(config.security.bcryptRounds);
+    const tokens = new TokenService(config.security.jwtSecret, config.security.jwtExpiresInSeconds);
+    let dataSource: DataSource | undefined;
+    let userRepository: UserRepository;
+    let redis: RedisConnection | undefined;
 
-  // CTOR
-  constructor() {
-    // Create a new express app
-    this.server = express();
+    try {
+      // initialize persistence
+      const persistence = await selectUserPersistence(config, connector);
+      dataSource = persistence.dataSource;
+      userRepository = persistence.repository;
+      
+      if (config.redis.enabled) {
+        redis = await this.initializeRedis(config, logger, connector);
+      }
 
-    // get global configuration
-    this.configService = ConfigService.getInstance();
+      // create default development auth credential
+      if (config.environment !== 'production') {
+        await createDefaultDevelopmentAuthCredential(userRepository, passwords);
+      }
 
-    // initializations
-    this.initConfiguration();
-    this.initMiddlewares();
-    this.initRoutes();
-  }
+    } catch (error) {
+      redis?.close();
+      if (dataSource?.isInitialized) await dataSource.destroy();
+      throw error;
+    }
 
-  /**
-   * configures and mount the routes for the express app
-   */
-  private initRoutes(): void {
-    this.server.use(routes);
-  }
+    // run server
+    const httpServer = createApp({
+      config,
+      logger,
+      userService: new UserService(userRepository),
+      authService: new AuthService(userRepository, passwords, tokens),
+      accessTokenService: tokens,
+    }).listen(config.server.port, config.server.host, () => {
+      logStartupBanner(config, logger);
+    });
 
-  /**
-   * sets up the middlewares for the express app
-   */
-  private initMiddlewares() {
-    this.server.use(express.urlencoded({extended: false}));
-    this.server.use(cors());
-    this.server.use(express.json());
-
-    // create a middleware to log your HTTP requests using winston logger
-    this.server.use(expressWinston.logger(this.loggerInstance.expressWinstonConfig));
-
-    this.server.use(errorHandler);
-  }
-
-  /**
-   * sets the express server configurations
-   */
-  private initConfiguration() {
-    this.server.set('host', this.configService.getConfig().server.HOST);
-    this.server.set('port', this.configService.getConfig().server.PORT);
-    this.server.disable('x-powered-by');
-  }
-
-  private showServerUpMessages() {
-    const host = this.server.get('host');
-    const port = this.server.get('port');
-    const prefix = this.configService.getConfig().server.GLOBAL_URL_PREFIX;
-
-    this.loggerInstance.logger.debug(`Server .env variables: \n${listObjectProperties(this.configService.getConfig())}`);
-    this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(host, port, prefix)}`);
-  }
-
-  /**
-   * starts the express server
-   */
-  public startServer() {
-    const port = this.server.get('port');
-    this.server.listen(port, () => {
-      this.showServerUpMessages();
+    Server.registerShutdown(httpServer, async () => {
+      redis?.close();
+      if (dataSource?.isInitialized) await dataSource.destroy();
     });
   }
-}
 
-export default new App();
+  private static async initializeRedis(config: AppConfig, logger: LoggerService, connector: DependencyConnector): Promise<RedisConnection | undefined> {
+    const redisConnection = new RedisConnection(config, logger);
+
+    await connector.connect({
+      name: 'Redis',
+      endpoint: new URL(config.redis.url).host,
+      retries: config.startup.connectRetries,
+      retryDelayMs: config.startup.retryDelayMs,
+      connect: () => redisConnection.connect(),
+    });
+
+    return redisConnection;
+  }
+
+  private static registerShutdown(httpServer: HttpServer, closeInfrastructure: () => Promise<void>): void {
+    const shutdown = (signal: NodeJS.Signals): void => {
+      httpServer.close(() => void closeInfrastructure().finally(() => process.exit(0)));
+      process.stderr.write(`Received ${signal}; shutting down\n`);
+    };
+
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
+  }
+}

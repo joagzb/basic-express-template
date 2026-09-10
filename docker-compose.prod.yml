@@ -1,0 +1,52 @@
+name: basic-express-prod
+services:
+  prod-api:
+    build:
+      context: .
+      target: production
+    env_file: .env.production
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production environment file}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the production environment file}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the production environment file}
+    ports:
+      - '3000:3000'
+    depends_on:
+      prod-postgres:
+        condition: service_healthy
+      prod-redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prod-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: express_prod
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production environment file}
+      POSTGRES_DB: express_prod
+    volumes:
+      - prod-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U express_prod -d express_prod']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  prod-redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the production environment file}
+    volumes:
+      - prod-redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${REDIS_PASSWORD}" ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the production environment file}
+    restart: unless-stopped
+
+volumes:
+  prod-postgres-data:
+  prod-redis-data:

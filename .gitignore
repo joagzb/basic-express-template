@@ -13,6 +13,8 @@ jspm_packages
 # dotenv environment variables file
 .env
 .env.local
+.env.*
+!.env.*.example
 .env.*.local
 
 # Transpiled JavaScript files from Typescript
@@ -21,6 +23,7 @@ build
 target/
 out/
 *.lock
+!package-lock.json
 
 # Logs
 logs
@@ -127,3 +130,8 @@ docker-compose.override.yml
 # pnpm (alternative package manager)
 pnpm-lock.yaml
 .pnpm-store
+
+# AI
+.atl
+.agents
+skills-lock.json

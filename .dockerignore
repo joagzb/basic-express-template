@@ -1,5 +1,6 @@
 # Node modules and dependencies
 node_modules
+.git
 npm-debug.log
 
 # Production build output
@@ -10,14 +11,17 @@ npm-debug.log
 # TypeScript build information
 *.tsbuildinfo
 
-# Environment files
+# Environment files containing local secrets
 .env
+.env.development
+.env.test
+.env.production
 
 # Docker files
 .dockerignore
 Dockerfile
 Dockerfile.*
-docker-compose.yml
+docker-compose*.yml
 
 # OS generated files
 .DS_Store

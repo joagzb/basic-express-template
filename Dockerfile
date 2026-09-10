@@ -1,30 +1,25 @@
-# 🎯 Build stage
-FROM node:20.13.1-bookworm-slim AS builder
+FROM node:20-bookworm-slim AS development
 WORKDIR /usr/src/app
-
-# Leverage Docker cache
-COPY package*.json ./
+COPY package.json package-lock.json ./
+COPY .husky/install.mjs ./.husky/install.mjs
 RUN npm ci
+COPY tsconfig.json tsconfig.build.json ./
+COPY eslint.config.cjs jest.config.cjs .prettierrc .prettierignore ./
+COPY src ./src
+CMD ["npm", "run", "dev"]
 
-COPY tsconfig.json ./
-COPY src/ ./src/
+FROM development AS build
 RUN npm run build
 
-# 🧪 Runtime stage
-FROM node:20.13.1-bookworm-slim
+FROM node:20-bookworm-slim AS production
+ENV NODE_ENV=production
 WORKDIR /usr/src/app
-
-# Update OS packages first
-RUN apt-get update \
-  && apt-get upgrade -y \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY --from=builder /usr/src/app/dist ./dist
-
-# Optional: use non-root user for security
+COPY package.json package-lock.json ./
+COPY .husky/install.mjs ./.husky/install.mjs
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /usr/src/app/dist ./dist
 USER node
-
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "const port=process.env.PORT||3000;const raw=process.env.URL_PREFIX||'/api';const prefix=raw==='/'?'':raw.replace(/\/+$/,'');require('node:http').get('http://127.0.0.1:'+port+prefix+'/health/ping',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 CMD ["node", "dist/index.js"]

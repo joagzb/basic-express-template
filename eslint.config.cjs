@@ -19,9 +19,11 @@ module.exports = [
       },
       globals: {
         process: 'readonly',
+        NodeJS: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
         console: 'readonly',
+        setTimeout: 'readonly',
       },
     },
     plugins: {
@@ -36,19 +38,21 @@ module.exports = [
       'spaced-comment': ['error', 'always'],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-empty-function': 'error',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', {argsIgnorePattern: '^_'}],
     },
   },
   {
-    files: ['**/*.test.ts'],
+    files: ['**/*.{test,spec}.ts'],
     plugins: {
       jest: jestPlugin,
     },
     languageOptions: {
       globals: {
         test: 'readonly',
+        it: 'readonly',
         describe: 'readonly',
         expect: 'readonly',
+        jest: 'readonly',
         beforeEach: 'readonly',
         afterEach: 'readonly',
       },

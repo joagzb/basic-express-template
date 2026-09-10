@@ -1,76 +1,72 @@
-# Ready-to-Use Express Server for Building RESTful APIs
+# Basic Express TypeScript Template
 
-A basic Express server template for quickly building RESTful APIs using Node.js and TypeScript.
+A compact Express API starter with TypeScript, four explicit layers, swappable persistence, validation, logging, JWT authentication, Swagger, and tests.
 
-## Project Description
+## Requirements
 
-This project provides a boilerplate Express server setup with TypeScript for building RESTful APIs. It includes configuration for local development and Docker deployment.
+- Node.js 20+
+- npm 10+
+- Docker with Docker Compose (optional)
 
-## Prerequisites 📋
+## Run the app
 
-- [Node.js](https://nodejs.org/) (v20+ recommended) - JavaScript runtime
-- [Docker](https://www.docker.com/) - Containerization platform
+For a local npm run:
 
-## Installation and Deployment 🔧📦
+```bash
+npm install
+cp .env.development.example .env.development
+npm run dev
+```
 
-_Under src/api, create a new folder that has to contain all the files representing a subdomain, feature, page, etc. You can follow 'user' folder as an example. Note that this folder must contain:_
+Alternatively, start the development stack with Docker Compose:
 
-1. <featureName>.route.ts - route controller where 'featureName' will be the route name. E.g. user.route.ts -> [GET|POST] api/user/
-2. <featureName>.controller.ts - controller where 'featureName' will be the class name. E.g. user.controller.ts -> class UserController
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
 
-_At the root of the project, create a .env file that must contains the environment variables as shown in the .env.example:_
+The API runs at <http://localhost:3000/api>, health at <http://localhost:3000/api/health/ping>, and Swagger UI at <http://localhost:3000/api/docs>.
 
-> **Note:** The TypeScript sources compile to CommonJS. When importing local files, omit the file extension (e.g. `import foo from './foo'`).
+## Environment configuration
 
-1. **Local Development:**
-   - Clone the repository and navigate to the project directory.
-   - Create a `.env` file based on `.env.example` with necessary environment variables.
-   - Install dependencies and start the server:
+The app loads `.env.<NODE_ENV>` followed by `.env`; development is the default environment. Copy the matching `.env.development.example`, `.env.test.example`, or `.env.production.example` file and never commit real secrets.
 
-     ```bash
-     npm install
-     npm start
-     ```
+`PERSISTENCE_PROVIDER` selects `postgres` (the default) or process-local `memory`. Configure `POSTGRES_*` when using PostgreSQL. Redis is independent and uses `REDIS_ENABLED` plus `REDIS_*`. Server and security settings include `HOST`, `PORT`, `URL_PREFIX`, `JWT_SECRET`, `JWT_EXPIRES_IN_SECONDS`, and `BCRYPT_ROUNDS`.
 
-     The `start` script runs the development server using TypeScript watcher. For a production build use:
+Development and test startup explicitly seed `developer@example.com` / `development-password` through the selected user repository. This fixture is disabled in production; production credentials must be provisioned in persistent storage with a bcrypt password hash.
 
-     ```bash
-     npm run start:prod
-     ```
+## API and authentication
 
-     After the server starts, verify it by visiting [http://localhost:3000/api/health/ping](http://localhost:3000/api/health/ping).
+Health and login are public. Every user endpoint requires the access token returned by login:
 
-2. **Using Docker:**
-   - Build and run the Docker image:
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"developer@example.com","password":"development-password"}'
 
-     ```bash
-     docker build -t my-node-app-name .
-     ```
+curl http://localhost:3000/api/users \
+  -H "Authorization: Bearer <access-token>"
+```
 
-   - run the Docker image:
+Protected user routes are `GET /api/users`, `POST /api/user`, and `GET`, `PATCH`, or `DELETE /api/user/:id`. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
 
-     ```bash
-     docker run -p 3000:3000 my-node-app-name
-     ```
+## Structure
 
-   - the server will be available at http://localhost:3000
-   - check the backend health at http://localhost:3000/api/health/healthBreath
+The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `bootstrap`. Injectable application ports hide Redis key/value operations and structured Pino logging from consumers. HTTP and external DTOs use Zod; environment configuration is parsed directly in `config/env.ts`. See [Architecture](docs/architecture.md) for API details, dependency rules, and extension guidance.
 
-## Running Tests
-
-Execute the unit tests with:
+## Test and build
 
 ```bash
 npm test
+npm run check
+npm run build
 ```
 
-## Built With 🛠️
+Production-shaped and isolated test Compose files are also included.
 
-- [Node.js](https://nodejs.org/) - Cross-platform JavaScript runtime
-- [TypeScript](https://www.typescriptlang.org/) - Typed superset of JavaScript
-- [Express](https://expressjs.com/) - Web framework for Node.js
-- [Winston](https://github.com/winstonjs/winston) - Logging library for Node.js
+## Production note
+
+This is a development-ready foundation. Add application-specific authorization, credential provisioning, secret management, observability, abuse controls, and deployment hardening before production use.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+MIT
