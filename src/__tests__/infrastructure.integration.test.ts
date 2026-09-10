@@ -1,7 +1,7 @@
-import {loadConfig} from '../config';
-import {RedisConnection} from '../infrastructure/cache/redis.connection';
-import {createLogger} from '../infrastructure/logging/logger';
-import {createPostgresDataSource} from '../infrastructure/persistence/postgres/data-source';
+import { loadConfig } from '../config';
+import { RedisConnection } from '../infrastructure/cache/redis.connection';
+import { createLogger } from '../infrastructure/logging/logger.service';
+import { createPostgresDataSource } from '../infrastructure/persistence/postgres/data-source';
 
 const integrationTest = process.env.RUN_INTEGRATION_TESTS === 'true' ? test : test.skip;
 
@@ -22,9 +22,12 @@ describe('isolated infrastructure', () => {
         expect(await redis.service.get('integration:connection')).toBe('connected');
         await redis.service.delete('integration:connection');
       } finally {
-        redis.close();
-        if (dataSource.isInitialized) {
-          await dataSource.destroy();
+        try {
+          await redis.close();
+        } finally {
+          if (dataSource.isInitialized) {
+            await dataSource.destroy();
+          }
         }
       }
     },

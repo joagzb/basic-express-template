@@ -1,4 +1,4 @@
-import {KeyValue, KeyValueStore} from '../../application/shared/key-value-store';
+import { KeyValue, RedisOperations } from './redis.interface';
 
 export interface RedisCommandClient {
   readonly isReady: boolean;
@@ -24,7 +24,7 @@ export class RedisSerializationError extends Error {
   }
 }
 
-export class RedisService implements KeyValueStore {
+export class RedisService implements RedisOperations {
   public constructor(
     private readonly client?: RedisCommandClient,
     private readonly unavailableReason = 'Redis is disabled',

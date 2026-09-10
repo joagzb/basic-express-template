@@ -2,7 +2,7 @@ export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | {[key: string]: JsonValue};
 export type KeyValue = Exclude<JsonValue, null>;
 
-export interface KeyValueStore {
+export interface RedisOperations {
   set(key: string, value: KeyValue, ttlSeconds?: number): Promise<void>;
   put(key: string, value: KeyValue, ttlSeconds?: number): Promise<void>;
   get(key: string): Promise<KeyValue | null>;

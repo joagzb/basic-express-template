@@ -2,7 +2,7 @@ import {NewUser, NewUserCredential, User, UserCredential, UserUpdate} from './us
 
 export interface UserRepository {
   create(user: NewUser): Promise<User>;
-  createCredential(credential: NewUserCredential): Promise<UserCredential>;
+  createCredential(credential: NewUserCredential): Promise<UserCredential | null>;
   findAll(): Promise<User[]>;
   findById(id: string): Promise<User | null>;
   findCredentialByEmail(email: string): Promise<UserCredential | null>;

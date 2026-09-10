@@ -1,5 +1,5 @@
-import {LoggerDestination, PinoLoggerService} from '../infrastructure/logging/logger';
-import {testConfig} from '../testing/test-config';
+import { testConfig } from '../config/test-config';
+import { LoggerDestination, PinoLoggerService } from '../infrastructure/logging/logger.service';
 
 class MemoryDestination implements LoggerDestination {
   public readonly lines: string[] = [];

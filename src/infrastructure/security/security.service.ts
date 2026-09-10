@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt, {JwtPayload} from 'jsonwebtoken';
-import {AccessTokenPayload, AccessTokenService, PasswordVerifier} from '../../domain/auth/auth';
+import {AccessTokenPayload, AccessTokenService, PasswordHasher, PasswordVerifier} from '../../domain/auth/auth';
 
 export class TokenService implements AccessTokenService {
   public constructor(
@@ -19,7 +19,7 @@ export class TokenService implements AccessTokenService {
   }
 }
 
-export class PasswordService implements PasswordVerifier {
+export class PasswordService implements PasswordHasher, PasswordVerifier {
   public constructor(private readonly rounds: number) {}
 
   public hash(password: string): Promise<string> {

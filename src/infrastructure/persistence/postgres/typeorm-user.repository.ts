@@ -10,10 +10,15 @@ export class TypeOrmUserRepository implements UserRepository {
     return this.toUser(await this.repository.save(this.repository.create(input)));
   }
 
-  public async createCredential(input: NewUserCredential): Promise<UserCredential> {
+  public async createCredential(input: NewUserCredential): Promise<UserCredential | null> {
     const credential = {...input, email: input.email.toLowerCase()};
-    const entity = await this.repository.save(this.repository.create(credential));
-    return {user: this.toUser(entity), email: credential.email, passwordHash: credential.passwordHash};
+    try {
+      const entity = await this.repository.save(this.repository.create(credential));
+      return {user: this.toUser(entity), email: credential.email, passwordHash: credential.passwordHash};
+    } catch (error) {
+      if (this.isUniqueConstraintViolation(error)) return null;
+      throw error;
+    }
   }
 
   public async findAll(): Promise<User[]> {
@@ -48,5 +53,11 @@ export class TypeOrmUserRepository implements UserRepository {
 
   private toUser(entity: UserEntity): User {
     return {id: entity.id, name: entity.name, surname: entity.surname, dateOfBirth: entity.dateOfBirth};
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    const databaseError = error as {code?: unknown; driverError?: {code?: unknown}};
+    return databaseError.code === '23505' || databaseError.driverError?.code === '23505';
   }
 }

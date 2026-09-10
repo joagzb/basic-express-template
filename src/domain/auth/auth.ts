@@ -10,3 +10,7 @@ export interface AccessTokenService {
 export interface PasswordVerifier {
   compare(password: string, hash: string): Promise<boolean>;
 }
+
+export interface PasswordHasher {
+  hash(password: string): Promise<string>;
+}

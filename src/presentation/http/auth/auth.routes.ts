@@ -1,16 +1,14 @@
-import {Router} from 'express';
+import {BaseRoutes} from '../base/base.routes';
 import {AuthController} from './auth.controller';
 
-export class AuthRoutes extends BaseRoutes {
-
+export class AuthRoutes extends BaseRoutes<AuthController> {
   public constructor(controller: AuthController) {
+    super('/auth', controller);
+    this.registerEndpoints(this.controller);
+  }
 
-
-    router.post('/login', (request, response, next) => void controller.login(request, response, next));
-
-    this.definition = {
-      path: '/auth', 
-      router
-    };
+  protected registerEndpoints(controller: AuthController): void {
+    this.router.post('/register', controller.register);
+    this.router.post('/login', controller.login);
   }
 }

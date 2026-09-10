@@ -12,11 +12,15 @@ export class InMemoryUserRepository implements UserRepository {
     return user;
   }
 
-  public async createCredential(input: NewUserCredential): Promise<UserCredential> {
+  public async createCredential(input: NewUserCredential): Promise<UserCredential | null> {
     const {email, passwordHash, ...userInput} = input;
-    const user = await this.create(userInput);
-    const credential = {user, email: email.toLowerCase(), passwordHash};
-    this.credentials.set(credential.email, credential);
+    const normalizedEmail = email.toLowerCase();
+    if (this.credentials.has(normalizedEmail)) return null;
+
+    const user: User = {id: randomUUID(), ...userInput};
+    const credential = {user, email: normalizedEmail, passwordHash};
+    this.users.set(user.id, user);
+    this.credentials.set(normalizedEmail, credential);
     return credential;
   }
 

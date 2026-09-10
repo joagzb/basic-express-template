@@ -1,38 +1,46 @@
-import {DataSource} from 'typeorm';
-import {AppConfig, PersistenceProvider} from '../../config';
-import {UserRepository} from '../../domain/users/user.repository';
-import {DependencyConnector} from '../startup/dependency-connector';
-import {InMemoryUserRepository} from './memory/in-memory-user.repository';
-import {createPostgresDataSource} from './postgres/data-source';
-import {TypeOrmUserRepository} from './postgres/typeorm-user.repository';
-import {UserEntity} from './postgres/user.entity';
+import { DataSource } from 'typeorm';
+import { AppConfig, PersistenceProvider } from '../../config';
+import { UserRepository } from '../../domain/users/user.repository';
+import { LoggerService } from '../logging/logger.interface';
+import { RetryStrategy } from '../startup/retry.strategy';
+import { InMemoryUserRepository } from './memory/in-memory-user.repository';
+import { createPostgresDataSource } from './postgres/data-source';
+import { TypeOrmUserRepository } from './postgres/typeorm-user.repository';
+import { UserEntity } from './postgres/user.entity';
 
 export interface UserPersistence {
   readonly repository: UserRepository;
   readonly dataSource?: DataSource;
 }
 
-type PersistenceFactory = (config: AppConfig, connector: DependencyConnector, dataSourceFactory: typeof createPostgresDataSource) => Promise<UserPersistence>;
+type PersistenceFactory = (config: AppConfig, retry: RetryStrategy, logger: LoggerService, dataSourceFactory: typeof createPostgresDataSource) => Promise<UserPersistence>;
 
 const persistenceFactories: Record<PersistenceProvider, PersistenceFactory> = {
   [PersistenceProvider.MEMORY]: async () => ({repository: new InMemoryUserRepository()}),
-  [PersistenceProvider.POSTGRES]: async (config, connector, dataSourceFactory) => {
+  [PersistenceProvider.POSTGRES]: async (config, retry, logger, dataSourceFactory) => {
     const dataSource = dataSourceFactory(config);
-    await connector.connect({
-      name: 'PostgreSQL',
-      endpoint: `${config.postgres.host}:${config.postgres.port}`,
-      retries: config.startup.connectRetries,
-      retryDelayMs: config.startup.retryDelayMs,
-      connect: async () => void (await dataSource.initialize()),
-    });
-    return {repository: new TypeOrmUserRepository(dataSource.getRepository(UserEntity)), dataSource};
+    try {
+      await retry({
+        name: 'PostgreSQL',
+        target: `${config.postgres.host}:${config.postgres.port}`,
+        maxRetries: config.startup.connectRetries,
+        baseDelayMs: config.startup.retryDelayMs,
+        logger,
+        fn: async () => void (await dataSource.initialize()),
+      });
+      return {repository: new TypeOrmUserRepository(dataSource.getRepository(UserEntity)), dataSource};
+    } catch (error) {
+      if (dataSource.isInitialized) await dataSource.destroy();
+      throw error;
+    }
   },
 };
 
 export const selectUserPersistence = async (
   config: AppConfig,
-  connector: DependencyConnector,
+  retry: RetryStrategy,
+  logger: LoggerService,
   dataSourceFactory: typeof createPostgresDataSource = createPostgresDataSource,
 ): Promise<UserPersistence> => {
-  return persistenceFactories[config.persistence.provider](config, connector, dataSourceFactory);
+  return persistenceFactories[config.persistence.provider](config, retry, logger, dataSourceFactory);
 };

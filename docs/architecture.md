@@ -10,14 +10,14 @@ Source dependencies point toward the domain:
 presentation ──> application ──> domain
 infrastructure ─────────────────────> domain
 
-bootstrap/composition ──> presentation + application + infrastructure
+server/composition ──> presentation + application + infrastructure
 ```
 
 - `domain` does not import Express, TypeORM, Redis, configuration, or another layer.
 - `application` imports domain models and contracts and may own narrow outbound ports for technical capabilities. It does not know which database, cache client, logger, or HTTP framework is used.
 - `infrastructure` implements domain contracts and owns external technology such as TypeORM, PostgreSQL, Redis, Pino, JWT, and bcrypt.
 - `presentation` translates HTTP requests and responses and delegates use-case work to the Application Service Layer.
-- `bootstrap` is the composition root. It may reference every layer because its job is to select implementations, inject dependencies, start the process, and release resources.
+- `src/server.ts` is the composition root. It may reference every layer because its job is to select implementations, inject dependencies, start the process, and release resources.
 - `config` converts environment variables into typed settings used at the outer boundaries.
 
 The important boundary is the repository interface. `UserService` depends on `UserRepository`, which belongs to the domain. Both persistence adapters implement that contract. The application therefore does not depend on either adapter.
@@ -70,9 +70,9 @@ Infrastructure may depend on domain and application-owned contracts to implement
 `src/presentation` contains delivery concerns. The current delivery mechanism is HTTP through Express:
 
 - routes map URL paths and methods;
-- controllers validate request DTOs (`body`, `params`, and `query`) with Zod and validate response DTOs before data crosses the HTTP boundary;
-- controllers translate HTTP input into Service Layer calls and build HTTP responses;
-- middleware handles validation, not-found responses, errors, request logging, and shared HTTP policy;
+- controllers extract raw Express `body`, `params`, and `query` values, delegate to application services, and build HTTP responses;
+- application services construct and validate use-case-specific DTOs without depending on Express;
+- middleware maps validation failures, not-found responses, errors, request logging, and shared HTTP policy;
 - `app.ts` creates the Express application and registers middleware and routes without opening a network listener;
 - `openapi.ts` builds the Swagger/OpenAPI document.
 
@@ -85,29 +85,29 @@ A repository-backed user request follows this path:
 ```text
 HTTP request
   -> Express middleware
-  -> route and Zod validation
   -> UserController
-  -> UserService (Application Service Layer)
+  -> UserService DTO construction and validation (Application Service Layer)
   -> UserRepository contract
   -> selected PostgreSQL or memory adapter
-  -> Zod response validation
   -> controller response
   -> HTTP response
 ```
 
-For example, `POST /api/user` is validated by `createUserRequestDtoSchema`, handled by `UserController.create`, mapped from `CreateUserRequestDto` to the framework-independent `NewUser` input, delegated to `UserService.create`, and persisted by the injected `UserRepository`. Errors are forwarded to the final HTTP error middleware.
+For example, `POST /api/users` is handled by `UserController.create`, which passes the raw body and query to `UserService.create`. The framework-independent service validates and constructs `NewUser`, then persists it through the injected `UserRepository`. Errors are forwarded to the final HTTP error middleware.
 
-Authentication follows the same explicit path: `AuthController.login` maps `LoginRequestDto` into application credentials, `AuthService.login` queries `UserRepository.findCredentialByEmail`, and the selected memory or TypeORM repository performs the lookup. The service then verifies the password and issues a token through domain security contracts implemented by infrastructure services. Controllers never access repositories or ORM APIs directly, and application services never import Express.
+Authentication follows the same explicit path: `AuthController` passes raw registration or login bodies to `AuthService`, which validates them before creating or querying credentials through `UserRepository`. The service hashes or verifies the password and issues a token through domain security contracts implemented by infrastructure services. Controllers never access repositories or ORM APIs directly, and application services never import Express.
 
 ### Current user HTTP behavior
 
 The example API exposes collection listing and persistence operations, while some item operations return acknowledgements rather than persisted records:
 
-- `GET /api/users` calls `UserService.findAll` and returns every user from the selected repository. `GET /api/user` is not registered.
-- `POST /api/user` calls `UserService.create`, persists the user, and returns the created record inside `{function: 'create', data}`.
-- `GET /api/user/:id` calls `UserService.findById` and returns `{function: 'getById', id}` using the persisted user identifier, or a `USER_NOT_FOUND` error when no matching record exists.
-- `PATCH /api/user/:id` validates the body and calls `UserService.update`, then returns `{function: 'update'}` regardless of whether a matching record was found.
-- `DELETE /api/user/:id` calls `UserService.delete`, then returns `{function: 'delete'}` regardless of whether a matching record was found.
+- `GET /api/users` calls `UserService.findAll` and returns every user from the selected repository.
+- `POST /api/users` calls `UserService.create`, persists the user, and returns the created record inside `{function: 'create', data}`.
+- `GET /api/users/:id` calls `UserService.findById` and returns `{function: 'getById', id}` using the persisted user identifier, or a `USER_NOT_FOUND` error when no matching record exists.
+- `PATCH /api/users/:id` validates the body and calls `UserService.update`, then returns `{function: 'update'}` regardless of whether a matching record was found.
+- `DELETE /api/users/:id` calls `UserService.delete`, then returns `{function: 'delete'}` regardless of whether a matching record was found.
+
+`UserRoutes` defines the canonical plural resource boundary at `/api/users`. Singular `/api/user` routes are not registered.
 
 The service and repository expose `findById`, `update`, and `delete`. The lookup endpoint reports a missing record, while PATCH and DELETE preserve acknowledgement-only compatibility responses. Returning full records or adding not-found behavior to those mutation endpoints remains a future public HTTP contract extension.
 
@@ -118,13 +118,18 @@ The service and repository expose `findById`, `update`, and `delete`. The lookup
 ```text
 src/
 ├── domain/
+│   ├── auth/
+│   │   └── auth.ts
 │   └── users/
 │       ├── user.ts
 │       └── user.repository.ts
 ├── application/
+│   ├── auth/
+│   │   └── auth.service.ts
 │   ├── shared/
 │   │   ├── key-value-store.ts
-│   │   └── logger.service.ts
+│   │   ├── logger.service.ts
+│   │   └── validation.ts
 │   └── users/
 │       └── user.service.ts
 ├── infrastructure/
@@ -138,6 +143,7 @@ src/
 │   │   │   └── in-memory-user.repository.ts
 │   │   ├── postgres/
 │   │   │   ├── migrations/create-users-table.ts
+│   │   │   ├── migrations/add-user-credentials.ts
 │   │   │   ├── data-source.ts
 │   │   │   ├── typeorm-user.repository.ts
 │   │   │   └── user.entity.ts
@@ -145,20 +151,24 @@ src/
 │   ├── security/
 │   │   └── security.service.ts
 │   └── startup/
-│       └── dependency-connector.ts
+│       └── retry.strategy.ts
 ├── presentation/
 │   └── http/
 │       ├── errors/app-error.ts
 │       ├── health/
 │       │   ├── health.controller.ts
-│       │   ├── health.routes.ts
-│       │   └── health.dto.ts
+│       │   └── health.routes.ts
+│       ├── auth/
+│       │   ├── auth.controller.ts
+│       │   ├── auth.routes.ts
+│       │   └── authentication.middleware.ts
+│       ├── base/
+│       │   ├── base.routes.ts
+│       │   └── routes.factory.ts
 │       ├── middleware/http.middleware.ts
 │       ├── users/
 │       │   ├── user.controller.ts
-│       │   ├── user.routes.ts
-│       │   └── user.dto.ts
-│       ├── app.ts
+│       │   └── user.routes.ts
 │       └── openapi.ts
 ├── config/
 │   ├── app.config.ts
@@ -167,20 +177,20 @@ src/
 │   ├── env.ts
 │   ├── index.ts
 │   └── redis.config.ts
-├── bootstrap/
-│   ├── server.ts
-│   └── startup-banner.ts
-├── testing/
-│   └── test-config.ts
+├── app.ts
+├── server.ts
+├── startup-banner.ts
 ├── __tests__/
 │   ├── app.test.ts
-│   ├── dependency-connector.test.ts
+│   ├── auth-service.test.ts
+│   ├── retry-strategy.test.ts
 │   ├── environment.test.ts
 │   ├── infrastructure.integration.test.ts
 │   ├── logger-service.test.ts
 │   ├── persistence-provider.test.ts
 │   ├── redis-service.test.ts
 │   ├── security-services.test.ts
+│   ├── server.test.ts
 │   ├── user-repository.test.ts
 │   └── user-service.test.ts
 └── index.ts
@@ -188,16 +198,16 @@ src/
 
 ## Folder-by-folder purpose
 
-| Folder               | Purpose                                                                | Avoid                                                           |
-| -------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `src/domain`         | Business models and provider-independent contracts                     | Framework imports and storage entities                          |
-| `src/application`    | Application Service Layer and use-case orchestration                   | Express responses, TypeORM repositories, raw environment access |
-| `src/infrastructure` | External adapters and technical services                               | HTTP response policy and application use cases                  |
-| `src/presentation`   | HTTP validation, routing, controllers, middleware, and OpenAPI         | Direct database access and business rules                       |
-| `src/config`         | Manual typed environment parsing and semantic configuration modules    | Ad hoc `process.env` reads elsewhere                            |
-| `src/bootstrap`      | Provider selection, dependency injection, listener lifecycle, shutdown | Business logic                                                  |
-| `src/testing`        | Reusable deterministic test configuration                              | Production composition                                          |
-| `src/__tests__`      | Unit, HTTP, provider-selection, startup, and opt-in integration tests  | Hidden production behavior                                      |
+| Folder                      | Purpose                                                                | Avoid                                                           |
+| --------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `src/domain`                | Business models and provider-independent contracts                     | Framework imports and storage entities                          |
+| `src/application`           | Application Service Layer and use-case orchestration                   | Express responses, TypeORM repositories, raw environment access |
+| `src/infrastructure`        | External adapters and technical services                               | HTTP response policy and application use cases                  |
+| `src/presentation`          | HTTP routing, controllers, middleware, error mapping, and OpenAPI      | DTO validation, direct database access, and business rules      |
+| `src/config`                | Manual typed environment parsing and semantic configuration modules    | Ad hoc `process.env` reads elsewhere                            |
+| `src/server.ts`             | Provider selection, dependency injection, listener lifecycle, shutdown | Business logic                                                  |
+| `src/config/test-config.ts` | Reusable deterministic test configuration                              | Production composition                                          |
+| `src/__tests__`             | Unit, HTTP, provider-selection, startup, and opt-in integration tests  | Hidden production behavior                                      |
 
 ## Repository and provider switching
 
@@ -222,18 +232,18 @@ REDIS_ENABLED=false
 Provider behavior and presentation are both enum-backed mappings:
 
 - `persistenceFactories` is an exhaustive `Record<PersistenceProvider, PersistenceFactory>` that selects the adapter and lifecycle behavior.
-- `databaseLabels` is an exhaustive `Record<PersistenceProvider, string>` that supplies the startup banner's human-readable database mode.
+- `databaseProviders` is an exhaustive `Record<PersistenceProvider, string>` that supplies the startup banner's human-readable database mode.
 
 Keeping both mappings keyed by `PersistenceProvider` makes extension explicit: adding an enum member creates a TypeScript error until its factory and display label are defined. Provider selection never leaks into the Service Layer or controller. To add another provider:
 
 1. Add its value to `PersistenceProvider`.
 2. Implement `UserRepository` in `src/infrastructure/persistence/<provider>`.
-3. Add its factory to `persistenceFactories` and its display label to `databaseLabels`; TypeScript reports either missing mapping because both records are exhaustive.
+3. Add its factory to `persistenceFactories` and its display label to `databaseProviders`; TypeScript reports either missing mapping because both records are exhaustive.
 4. Update environment examples, `src/__tests__/environment.test.ts`, `src/__tests__/persistence-provider.test.ts`, and provider-specific lifecycle cleanup when applicable.
 
 Do not add provider string comparisons or provider conditionals to `UserService` or controllers.
 
-Redis is independent of persistence. `REDIS_ENABLED=true` enables its startup connection; selecting memory persistence does not automatically change Redis. Application services that need caching should accept `KeyValueStore` and receive `redisConnection.service` from bootstrap after the connection succeeds.
+Redis is independent of persistence. `REDIS_ENABLED=true` enables its startup connection; selecting memory persistence does not automatically change Redis. Application services that need caching should accept `KeyValueStore` and receive `redisConnection.service` from the `src/server.ts` composition root after the connection succeeds.
 
 ## Environment configuration
 
@@ -248,28 +258,27 @@ Configuration is loaded once during startup:
 
 Use `.env.development.example`, `.env.test.example`, and `.env.production.example` as templates. Do not commit real secrets.
 
-Environment configuration intentionally does **not** use Zod. Its fixed, process-owned input is parsed once in `env.ts` into `ParsedEnvironment` and then mapped to `AppConfig`; coercion and startup errors remain explicit without coupling configuration to HTTP DTO tooling. When adding configuration, extend `ParsedEnvironment`, `parseEnvironment()`, the relevant typed module, its example environment files, and environment tests together. Avoid reading `process.env` from domain, application, presentation, or infrastructure feature classes.
+Environment configuration uses typed manual parsing. Its fixed, process-owned input is parsed once in `env.ts` into `ParsedEnvironment` and then mapped to `AppConfig`; coercion and startup errors remain explicit. When adding configuration, extend `ParsedEnvironment`, `parseEnvironment()`, the relevant typed module, its example environment files, and environment tests together. Avoid reading `process.env` from domain, application, presentation, or infrastructure feature classes.
 
 ## Boundary and model validation
 
-Zod belongs at HTTP and other external data boundaries. Every endpoint defines a request DTO schema covering `body`, `params`, and `query`, including explicit empty-object schemas when an endpoint accepts no values. Controllers parse these values before passing clean, framework-independent input to the Service Layer. Validation errors report each issue with its full DTO path (for example, `body.surname`) through the shared error envelope, including an ISO timestamp and structured issue details. Every endpoint also defines a response DTO schema; `sendValidatedResponse()` parses the payload before Express serializes it. Apply the same pattern when consuming untrusted messages, webhooks, files, or third-party API payloads.
+Controllers pass raw endpoint values to a specific application service method. The service constructs the use-case DTO and validates accepted `body`, `params`, and `query` fields before invoking a repository. Validation errors report each issue with its full DTO path (for example, `body.surname`) through the shared error envelope, including an ISO timestamp and structured issue details. This keeps validation reusable across HTTP and other delivery mechanisms without coupling services to Express.
 
-DTO schemas are transport contracts, not domain models or persistence entities. Map validated DTOs into domain/application inputs and validate business invariants in the domain or Service Layer. TypeORM metadata and database constraints remain necessary as the final persistence integrity boundary, but they do not replace DTO or domain validation: they run too late, cannot describe every HTTP shape or business invariant, produce storage-oriented errors, and do not validate outbound responses or non-database providers. Each boundary has a distinct job:
+Application DTOs are use-case contracts, not domain models or persistence entities. Application services map validated DTOs into domain inputs and enforce business invariants. TypeORM metadata and database constraints remain necessary as the final persistence integrity boundary, but they do not replace application or domain validation: they run too late, cannot describe every use-case shape or business invariant, and produce storage-oriented errors. Each boundary has a distinct job:
 
-- Zod protects external request and response contracts.
-- Domain/Application Service Layer validation protects business invariants regardless of transport or provider.
+- Application Service Layer DTO validation protects use-case inputs and business invariants regardless of transport or provider.
 - TypeORM and database constraints protect persisted data against invalid writes and concurrency races.
 
 ## Startup and the banner
 
-`src/index.ts` is the process entry point. `Server.start()` performs startup in this order:
+`src/index.ts` is the process entry point. `bootstrapServer()` performs startup in this order:
 
 1. load and validate configuration;
-2. create the injectable logger service and dependency connector;
-3. select and initialize the persistence provider;
+2. create the injectable logger service;
+3. select and initialize the persistence provider through the retry strategy;
 4. connect Redis only when enabled;
-5. construct `UserService` with the selected repository;
-6. inject the service into `createApp()` and open the HTTP listener;
+5. construct `UserService` and `AuthService` with the selected repository;
+6. build route definitions with `createRoutes()`, inject them into `createApp()`, and await the HTTP listener;
 7. log the startup banner;
 8. register graceful `SIGINT` and `SIGTERM` cleanup.
 
@@ -277,17 +286,7 @@ The structured startup banner reports application name and version, environment,
 
 ## Add a new feature
 
-Use one vertical slice across the four layers rather than creating a self-contained module that mixes them:
-
-1. **Domain:** create `src/domain/<feature>` models and repository contracts.
-2. **Application:** create `src/application/<feature>/<feature>.service.ts` for Service Layer use cases.
-3. **Infrastructure:** add adapters under `src/infrastructure`, such as memory and PostgreSQL repositories, entities, and migrations.
-4. **Presentation:** add Zod request and response DTO schemas, a controller, and routes under `src/presentation/http/<feature>`.
-5. **Composition:** select providers and instantiate the service in `src/bootstrap/server.ts`; inject it into `createApp()` and register routes explicitly.
-6. **Tests:** test the Service Layer with an injected fake or memory adapter, test the HTTP contract through `createApp()` without listening, and test provider selection separately.
-7. **Documentation:** update OpenAPI and this tree when the public API or architecture changes.
-
-Keep each dependency visible in constructors. Do not use global service locators or make the application layer import a concrete adapter.
+Follow [Add an endpoint set](adding-endpoints.md) for the concrete current workflow. Keep each dependency visible in constructors; do not use global service locators or make the application layer import a concrete adapter.
 
 ## Add a new library
 
@@ -297,7 +296,7 @@ Before adding a package, identify which boundary owns it:
 2. Place framework or vendor usage in `infrastructure` or `presentation`, not in `domain`.
 3. Hide replaceable provider APIs behind a domain contract or a narrow application-facing interface when application behavior depends on them.
 4. Pass configuration through `AppConfig`; do not let the library read environment variables throughout the codebase.
-5. Instantiate and inject the library from `bootstrap` when it has lifecycle or provider concerns.
+5. Instantiate and inject the library from `src/server.ts` when it has lifecycle or provider concerns.
 6. Add deterministic tests that do not require a live external service unless the test is explicitly an integration test.
 7. Update `package-lock.json`, relevant documentation, and production-hardening notes.
 

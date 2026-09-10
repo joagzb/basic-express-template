@@ -1,15 +1,14 @@
-import {Router} from 'express';
+import {BaseRoutes} from '../base/base.routes';
 import {HealthController} from './health.controller';
 
-export class HealthRoutes extends BaseRoutes {
+export class HealthRoutes extends BaseRoutes<HealthController> {
   public constructor(controller: HealthController) {
-    
+    super('/health', controller);
 
-    router.get('/ping', (request, response, next) => controller.ping(request, response, next));
+    this.registerEndpoints(this.controller);
+  }
 
-    this.definition = {
-      path: '/health', 
-      router
-    };
+  protected registerEndpoints(controller: HealthController): void {
+    this.router.get('/ping', controller.ping);
   }
 }

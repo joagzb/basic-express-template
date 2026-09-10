@@ -11,6 +11,8 @@ const ada: UserEntity = {
   passwordHash: null,
 };
 
+const credentialAda: UserEntity = {...ada, email: 'ada@example.com', passwordHash: 'password-hash'};
+
 const createRepositoryMock = () =>
   ({
     create: jest.fn(),
@@ -39,6 +41,40 @@ describe('TypeOrmUserRepository', () => {
     await expect(new TypeOrmUserRepository(repository).create(input)).resolves.toEqual({id: ada.id, ...input});
     expect(repository.create).toHaveBeenCalledWith(input);
     expect(repository.save).toHaveBeenCalledWith(ada);
+  });
+
+  test('maps a PostgreSQL unique-email violation to a duplicate credential result', async () => {
+    const repository = createRepositoryMock();
+    repository.create.mockReturnValue(credentialAda);
+    repository.save.mockRejectedValue({code: '23505'});
+
+    await expect(
+      new TypeOrmUserRepository(repository).createCredential({
+        name: 'Ada',
+        surname: 'Lovelace',
+        dateOfBirth: '1815-12-10',
+        email: 'ADA@example.com',
+        passwordHash: 'password-hash',
+      }),
+    ).resolves.toBeNull();
+    expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({email: 'ada@example.com'}));
+  });
+
+  test('does not hide non-unique credential persistence failures', async () => {
+    const repository = createRepositoryMock();
+    const failure = new Error('database unavailable');
+    repository.create.mockReturnValue(credentialAda);
+    repository.save.mockRejectedValue(failure);
+
+    await expect(
+      new TypeOrmUserRepository(repository).createCredential({
+        name: 'Ada',
+        surname: 'Lovelace',
+        dateOfBirth: '1815-12-10',
+        email: 'ada@example.com',
+        passwordHash: 'password-hash',
+      }),
+    ).rejects.toBe(failure);
   });
 
   test('finds a user by ID', async () => {

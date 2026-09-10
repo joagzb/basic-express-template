@@ -1,7 +1,7 @@
-import {createClient, RedisClientType} from 'redis';
-import {LoggerService} from '../../application/shared/logger.service';
-import {AppConfig} from '../../config';
-import {RedisCommandClient, RedisService} from './redis.service';
+import { createClient, RedisClientType } from 'redis';
+import { AppConfig } from '../../config';
+import { LoggerService } from '../logging/logger.interface';
+import { RedisCommandClient, RedisService } from './redis.service';
 
 export class RedisConnection {
   private readonly client: RedisClientType;
@@ -11,9 +11,14 @@ export class RedisConnection {
     this.client = createClient({
       url: config.redis.url,
       disableOfflineQueue: true,
-      socket: {connectTimeout: config.redis.connectTimeoutMs, reconnectStrategy: false},
+      socket: {
+        connectTimeout: config.redis.connectTimeoutMs,
+        reconnectStrategy: false, // Disables internal reconnection loop in favor of your startup retry strategy
+      },
     });
+
     this.client.on('error', (error: Error) => logger.error({error}, 'Redis client error'));
+
     const client = this.client;
     const commands: RedisCommandClient = {
       get isReady() {
@@ -30,10 +35,14 @@ export class RedisConnection {
   }
 
   public async connect(): Promise<void> {
-    if (!this.client.isOpen) await this.client.connect();
+    if (!this.client.isOpen) {
+      await this.client.connect();
+    }
   }
 
-  public close(): void {
-    if (this.client.isOpen) this.client.destroy();
+  public async close(): Promise<void> {
+    if (this.client.isOpen) {
+      await this.client.quit();
+    }
   }
 }

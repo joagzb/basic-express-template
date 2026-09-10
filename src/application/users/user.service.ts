@@ -1,34 +1,36 @@
-import {NewUser, User, UserUpdate} from '../../domain/users/user';
+import {User} from '../../domain/users/user';
 import {UserRepository} from '../../domain/users/user.repository';
+import { UserValidator } from './user.validator';
 
 export class UserService {
-  public constructor(private readonly users: UserRepository) {}
+  public constructor(private readonly users: UserRepository, private readonly validator: UserValidator) {}
 
-  public create(user: NewUser): Promise<User> {
+  public async create(user: CreateUserDto): Promise<User> {
+    const validationResult = this.validator.validateNewUser(user);
+
+    // todo: we are missing the CreateUserDto, but dont know where to place it to not break the clean architecture, and also dont know what to do with user.ts at the domain/users/user.ts
+    // todo: if validationResult is false, then return an exception and dont create the user
+
     return this.users.create(user);
   }
 
-  public findAll(): Promise<User[]> {
+  public async findAll(): Promise<User[]> {
     return this.users.findAll();
   }
 
-  public findById(id: string): Promise<User | null> {
+  public async findById(id: string): Promise<User | null> {
     return this.users.findById(id);
   }
 
-  public update(id: string, user: UserUpdate): Promise<User | null> {
+  public async update(id: string, user: UpdateUserDto): Promise<User | null> {
+    const validationResult = this.validator.validateUserUpdate(user);
+    // todo: if validationResult is false, then return an exception and dont create the user
+    
     return this.users.update(id, user);
   }
 
-  public delete(id: string): Promise<User | null> {
+  public async delete(id: string): Promise<User | null> {
     return this.users.delete(id);
   }
 
-  public calculateAge(dateOfBirth: string, today = new Date()): number {
-    const birthDate = new Date(`${dateOfBirth}T00:00:00.000Z`);
-    let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
-    const beforeBirthday = today.getUTCMonth() < birthDate.getUTCMonth() || (today.getUTCMonth() === birthDate.getUTCMonth() && today.getUTCDate() < birthDate.getUTCDate());
-    if (beforeBirthday) age -= 1;
-    return age;
-  }
 }

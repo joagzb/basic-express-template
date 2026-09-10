@@ -32,26 +32,28 @@ The app loads `.env.<NODE_ENV>` followed by `.env`; development is the default e
 
 `PERSISTENCE_PROVIDER` selects `postgres` (the default) or process-local `memory`. Configure `POSTGRES_*` when using PostgreSQL. Redis is independent and uses `REDIS_ENABLED` plus `REDIS_*`. Server and security settings include `HOST`, `PORT`, `URL_PREFIX`, `JWT_SECRET`, `JWT_EXPIRES_IN_SECONDS`, and `BCRYPT_ROUNDS`.
 
-Development and test startup explicitly seed `developer@example.com` / `development-password` through the selected user repository. This fixture is disabled in production; production credentials must be provisioned in persistent storage with a bcrypt password hash.
-
 ## API and authentication
 
-Health and login are public. Every user endpoint requires the access token returned by login:
+Health, registration, and login are public. Register an account or sign in to obtain the access token required by every user endpoint:
 
 ```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ada","surname":"Lovelace","dateOfBirth":"1815-12-10","email":"ada@example.com","password":"correct-password"}'
+
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"developer@example.com","password":"development-password"}'
+  -d '{"email":"ada@example.com","password":"correct-password"}'
 
 curl http://localhost:3000/api/users \
   -H "Authorization: Bearer <access-token>"
 ```
 
-Protected user routes are `GET /api/users`, `POST /api/user`, and `GET`, `PATCH`, or `DELETE /api/user/:id`. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
+Protected user routes are `GET` or `POST /api/users` and `GET`, `PATCH`, or `DELETE /api/users/:id`. Singular `/api/user` paths are not mounted. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
 
 ## Structure
 
-The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `bootstrap`. Injectable application ports hide Redis key/value operations and structured Pino logging from consumers. HTTP and external DTOs use Zod; environment configuration is parsed directly in `config/env.ts`. See [Architecture](docs/architecture.md) for API details, dependency rules, and extension guidance.
+The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `src/server.ts`. `src/app.ts` builds Express from route definitions and has no listener or external-connection side effects. Application services construct and validate DTOs with typed manual validators; controllers only pass raw HTTP values and map responses. See [Architecture](docs/architecture.md) for dependency rules and [Add an endpoint set](docs/adding-endpoints.md) for the current extension workflow.
 
 ## Test and build
 

@@ -1,4 +1,5 @@
 import {RuntimeAppConfig} from '../../config';
+import {INPUT_CONSTRAINTS} from '../../application/shared/validation';
 
 const jsonContent = (schema: Readonly<Record<string, unknown>>, example?: unknown) => ({
   'application/json': {
@@ -17,7 +18,7 @@ const userIdParameter = {
   in: 'path',
   required: true,
   description: 'User identifier',
-  schema: {type: 'string', minLength: 1},
+  schema: {type: 'string', ...INPUT_CONSTRAINTS.id},
 };
 
 export const createOpenApiDocument = (config: RuntimeAppConfig) =>
@@ -41,10 +42,10 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
       '/auth/login': {
         post: {
           summary: 'Sign in',
-          description: 'Verifies a configured user credential and returns a JWT access token.',
+          description: 'Verifies a registered user credential and returns a JWT access token.',
           requestBody: {
             required: true,
-            content: jsonContent({$ref: '#/components/schemas/LoginRequestDto'}, {email: 'developer@example.com', password: 'development-password'}),
+            content: jsonContent({$ref: '#/components/schemas/LoginRequestDto'}, {email: 'ada@example.com', password: 'correct-password'}),
           },
           responses: {
             '200': {
@@ -53,6 +54,24 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
             },
             '400': errorResponse,
             '401': {description: 'Credentials are invalid', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+          },
+        },
+      },
+      '/auth/register': {
+        post: {
+          summary: 'Register an account',
+          description: 'Creates a user credential and returns a JWT access token.',
+          requestBody: {
+            required: true,
+            content: jsonContent(
+              {$ref: '#/components/schemas/RegisterRequestDto'},
+              {name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10', email: 'ada@example.com', password: 'correct-password'},
+            ),
+          },
+          responses: {
+            '201': {description: 'JWT access token', content: jsonContent({$ref: '#/components/schemas/LoginResponseDto'})},
+            '400': errorResponse,
+            '409': {description: 'Email is already registered', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
           },
         },
       },
@@ -69,8 +88,6 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
             '400': errorResponse,
           },
         },
-      },
-      '/user': {
         post: {
           summary: 'Create a user',
           description: 'Validates and persists a user with the configured persistence provider.',
@@ -88,7 +105,7 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           },
         },
       },
-      '/user/{id}': {
+      '/users/{id}': {
         get: {
           summary: 'Find a user by identifier',
           description: 'Queries the configured persistence provider and returns the identifier of the matching user.',
@@ -162,8 +179,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           required: ['email', 'password'],
           properties: {
-            email: {type: 'string', format: 'email', maxLength: 320},
-            password: {type: 'string', minLength: 1, maxLength: 200, format: 'password'},
+            email: {type: 'string', format: 'email', ...INPUT_CONSTRAINTS.email},
+            password: {type: 'string', format: 'password', ...INPUT_CONSTRAINTS.password},
           },
         },
         LoginResponseDto: {
@@ -175,13 +192,25 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
             tokenType: {type: 'string', enum: ['Bearer']},
           },
         },
+        RegisterRequestDto: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['name', 'surname', 'dateOfBirth', 'email', 'password'],
+          properties: {
+            name: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            surname: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            dateOfBirth: {type: 'string', format: 'date'},
+            email: {type: 'string', format: 'email', ...INPUT_CONSTRAINTS.email},
+            password: {type: 'string', format: 'password', ...INPUT_CONSTRAINTS.password},
+          },
+        },
         CreateUserRequestDto: {
           type: 'object',
           additionalProperties: false,
           required: ['name', 'surname', 'dateOfBirth'],
           properties: {
-            name: {type: 'string', minLength: 1, maxLength: 100},
-            surname: {type: 'string', minLength: 1, maxLength: 100},
+            name: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            surname: {type: 'string', ...INPUT_CONSTRAINTS.userName},
             dateOfBirth: {type: 'string', format: 'date'},
           },
         },
@@ -190,8 +219,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           minProperties: 1,
           properties: {
-            name: {type: 'string', minLength: 1, maxLength: 100},
-            surname: {type: 'string', minLength: 1, maxLength: 100},
+            name: {type: 'string', ...INPUT_CONSTRAINTS.userName},
+            surname: {type: 'string', ...INPUT_CONSTRAINTS.userName},
             dateOfBirth: {type: 'string', format: 'date'},
           },
         },

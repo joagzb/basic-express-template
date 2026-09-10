@@ -1,6 +1,6 @@
-import pino, {DestinationStream, Level, Logger} from 'pino';
-import {LogContext, LoggerService, LogMethod} from '../../application/shared/logger.service';
-import {AppConfig} from '../../config';
+import pino, { DestinationStream, Level, Logger } from 'pino';
+import { AppConfig } from '../../config';
+import { LogContext, LoggerService, LogMethod } from './logger.interface';
 
 export interface LoggerDestination {
   write(message: string): unknown;
@@ -16,14 +16,15 @@ export class PinoLoggerService implements LoggerService {
   public readonly fatal: LogMethod;
 
   public constructor(config: Pick<AppConfig, 'logging'>, destination?: LoggerDestination) {
-    this.logger = pino({
+    this.logger = pino(
+      {
         level: config.logging.level,
         redact: {
           paths: ['req.headers.authorization', 'authorization', 'password', 'secret', 'token', '*.password', '*.secret', '*.token'],
           censor: '[REDACTED]',
         },
       },
-      
+
       destination as DestinationStream | undefined,
     );
 
@@ -55,8 +56,8 @@ export class PinoLoggerService implements LoggerService {
     const {error, ...remainingContext} = entries;
 
     return {
-      ...remainingContext, 
-      err: error
+      ...remainingContext,
+      err: error,
     };
   }
 }
