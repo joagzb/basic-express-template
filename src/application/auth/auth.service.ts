@@ -1,14 +1,14 @@
 import {IPasswordHasher, IPasswordVerifier, ITokenService} from '../../domain/auth/auth';
-import {UserRepository} from '../../domain/users/user.repository';
-import {AuthResultDto, LoginDto, RegisterDto} from './auth.dto';
+import {IUserRepository} from '../../domain/users/user.repository';
 import {ValidationError} from '../shared/validation';
+import {AuthResultDto, LoginDto, RegisterDto} from './auth.dto';
 import {AuthValidator} from './auth.validator';
 
 export class AuthService {
   private readonly validator = new AuthValidator();
 
   public constructor(
-    private readonly users: UserRepository,
+    private readonly users: IUserRepository,
     private readonly passwords: IPasswordVerifier & IPasswordHasher,
     private readonly tokens: ITokenService,
   ) {}
@@ -33,8 +33,12 @@ export class AuthService {
 
   public async register(registrationInput: RegisterDto): Promise<AuthResultDto | null> {
     const result = this.validator.validateRegistration(registrationInput);
-    if (!result.valid) throw new ValidationError(result.issues);
+    if (!result.valid) {
+      throw new ValidationError(result.issues);
+    }
+
     const registration = result.value;
+    
     const credential = await this.users.createCredential({
       name: registration.name,
       surname: registration.surname,

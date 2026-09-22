@@ -1,5 +1,5 @@
-import {AppConfig, PersistenceProvider} from './config';
-import {ILoggerService} from './infrastructure/logging/logger.interface';
+import { AppConfig, PersistenceProvider } from './config';
+import { ILoggerService } from './infrastructure/logging/logger.interface';
 export const databaseProviders: Record<PersistenceProvider, string> = {
   [PersistenceProvider.POSTGRES]: 'postgres',
   [PersistenceProvider.MEMORY]: 'in-memory',

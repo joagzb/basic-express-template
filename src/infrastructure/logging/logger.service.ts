@@ -1,6 +1,6 @@
-import pino, {DestinationStream, Level, Logger} from 'pino';
-import {AppConfig} from '../../config';
-import {LogContext, ILoggerService, LogMethod} from './logger.interface';
+import pino, { DestinationStream, Level, Logger } from 'pino';
+import { AppConfig } from '../../config';
+import { ILoggerService, ILogMethod, LogContext } from './logger.interface';
 
 export interface LoggerDestination {
   write(message: string): unknown;
@@ -8,12 +8,12 @@ export interface LoggerDestination {
 
 export class PinoLoggerService implements ILoggerService {
   private readonly logger: Logger;
-  public readonly trace: LogMethod;
-  public readonly debug: LogMethod;
-  public readonly info: LogMethod;
-  public readonly warn: LogMethod;
-  public readonly error: LogMethod;
-  public readonly fatal: LogMethod;
+  public readonly trace: ILogMethod;
+  public readonly debug: ILogMethod;
+  public readonly info: ILogMethod;
+  public readonly warn: ILogMethod;
+  public readonly error: ILogMethod;
+  public readonly fatal: ILogMethod;
 
   public constructor(config: Pick<AppConfig, 'logging'>, destination?: LoggerDestination) {
     this.logger = pino(
@@ -36,7 +36,7 @@ export class PinoLoggerService implements ILoggerService {
     this.fatal = this.createLogMethod('fatal');
   }
 
-  private createLogMethod(level: Level): LogMethod {
+  private createLogMethod(level: Level): ILogMethod {
     return (messageOrContext: string | LogContext, message?: string): void => {
       if (typeof messageOrContext === 'string') {
         this.logger[level](messageOrContext);

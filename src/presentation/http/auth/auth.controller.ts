@@ -8,7 +8,9 @@ export class AuthController {
   public readonly register = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const result = await this.auth.register(request.body);
-      if (!result) throw new AppError(409, 'EMAIL_ALREADY_REGISTERED', 'An account already exists for this email');
+      if (!result) {
+        throw new AppError(409, 'EMAIL_ALREADY_REGISTERED', 'An account already exists for this email');
+      }
       response.status(201).json(result);
     } catch (error) {
       next(error);
@@ -18,7 +20,9 @@ export class AuthController {
   public readonly login = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const result = await this.auth.login(request.body);
-      if (!result) throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
+      if (!result) {
+        throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
+      }
       response.status(200).json(result);
     } catch (error) {
       next(error);

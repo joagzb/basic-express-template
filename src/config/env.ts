@@ -13,14 +13,20 @@ const invalidValue = (name: string, expectation: string): never => {
 
 const parseString = (value: string | undefined, name: string, defaultValue: string, options: {readonly allowEmpty?: boolean; readonly pattern?: RegExp} = {}): string => {
   const parsed = value ?? defaultValue;
-  if (!options.allowEmpty && parsed.length === 0) invalidValue(name, 'must not be empty');
-  if (options.pattern && !options.pattern.test(parsed)) invalidValue(name, 'has an invalid format');
+  if (!options.allowEmpty && parsed.length === 0) {
+    invalidValue(name, 'must not be empty');
+  }
+  if (options.pattern && !options.pattern.test(parsed)) {
+    invalidValue(name, 'has an invalid format');
+  }
   return parsed;
 };
 
 const parseInteger = (value: string | undefined, name: string, defaultValue: number, range: {readonly min: number; readonly max?: number}): number => {
   const parsed = value === undefined ? defaultValue : Number(value);
-  if (!Number.isInteger(parsed)) invalidValue(name, 'must be an integer');
+  if (!Number.isInteger(parsed)) {
+    invalidValue(name, 'must be an integer');
+  }
   if (parsed < range.min || (range.max !== undefined && parsed > range.max)) {
     invalidValue(name, `must be between ${range.min} and ${range.max ?? 'Infinity'}`);
   }
@@ -29,7 +35,9 @@ const parseInteger = (value: string | undefined, name: string, defaultValue: num
 
 const parseAllowedValue = <T extends string>(value: string | undefined, name: string, defaultValue: T, allowedValues: readonly T[]): T => {
   const parsed = value ?? defaultValue;
-  if (!allowedValues.includes(parsed as T)) invalidValue(name, `must be one of: ${allowedValues.join(', ')}`);
+  if (!allowedValues.includes(parsed as T)) {
+    invalidValue(name, `must be one of: ${allowedValues.join(', ')}`);
+  }
   return parsed as T;
 };
 

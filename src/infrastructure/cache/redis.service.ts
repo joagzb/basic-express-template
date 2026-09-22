@@ -32,7 +32,9 @@ export class RedisService implements RedisOperations {
 
   public async set(key: string, value: KeyValue, ttlSeconds?: number): Promise<void> {
     this.assertKey(key);
-    if (ttlSeconds !== undefined) this.assertTtl(ttlSeconds);
+    if (ttlSeconds !== undefined) {
+      this.assertTtl(ttlSeconds);
+    }
     const serialized = JSON.stringify(value);
     const client = this.readyClient();
     await client.set(key, serialized, ttlSeconds === undefined ? undefined : {EX: ttlSeconds});
@@ -45,11 +47,15 @@ export class RedisService implements RedisOperations {
   public async get(key: string): Promise<KeyValue | null> {
     this.assertKey(key);
     const value = await this.readyClient().get(key);
-    if (value === null) return null;
+    if (value === null) {
+      return null;
+    }
 
     try {
       const parsed = JSON.parse(value) as KeyValue | null;
-      if (parsed === null) throw new TypeError('Top-level null is reserved for missing keys');
+      if (parsed === null) {
+        throw new TypeError('Top-level null is reserved for missing keys');
+      }
       return parsed;
     } catch (error) {
       throw new RedisSerializationError(key, {cause: error});
@@ -82,16 +88,24 @@ export class RedisService implements RedisOperations {
   }
 
   private readyClient(): RedisCommandClient {
-    if (!this.client) throw new RedisUnavailableError(this.unavailableReason);
-    if (!this.client.isReady) throw new RedisUnavailableError('Redis is unavailable because the client is not connected');
+    if (!this.client) {
+      throw new RedisUnavailableError(this.unavailableReason);
+    }
+    if (!this.client.isReady) {
+      throw new RedisUnavailableError('Redis is unavailable because the client is not connected');
+    }
     return this.client;
   }
 
   private assertKey(key: string): void {
-    if (key.trim().length === 0) throw new TypeError('Redis key must not be empty');
+    if (key.trim().length === 0) {
+      throw new TypeError('Redis key must not be empty');
+    }
   }
 
   private assertTtl(ttlSeconds: number): void {
-    if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0) throw new TypeError('Redis TTL must be a positive integer in seconds');
+    if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
+      throw new TypeError('Redis TTL must be a positive integer in seconds');
+    }
   }
 }

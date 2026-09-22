@@ -1,15 +1,15 @@
-import {DataSource} from 'typeorm';
-import {AppConfig, PersistenceProvider} from '../../config';
-import {UserRepository} from '../../domain/users/user.repository';
-import {ILoggerService} from '../logging/logger.interface';
-import {RetryStrategy} from '../startup/retry.strategy';
-import {InMemoryUserRepository} from './memory/in-memory-user.repository';
-import {createPostgresDataSource} from './postgres/data-source';
-import {TypeOrmUserRepository} from './postgres/typeorm-user.repository';
-import {UserEntity} from './postgres/user.entity';
+import { DataSource } from 'typeorm';
+import { AppConfig, PersistenceProvider } from '../../config';
+import { IUserRepository } from '../../domain/users/user.repository';
+import { ILoggerService } from '../logging/logger.interface';
+import { RetryStrategy } from '../startup/retry.strategy';
+import { InMemoryUserRepository } from './memory/in-memory-user.repository';
+import { createPostgresDataSource } from './postgres/data-source';
+import { TypeOrmUserRepository } from './postgres/typeorm-user.repository';
+import { UserEntity } from './postgres/user.entity';
 
 export interface UserPersistence {
-  readonly repository: UserRepository;
+  readonly repository: IUserRepository;
   readonly dataSource?: DataSource;
 }
 
@@ -30,7 +30,9 @@ const persistenceFactories: Record<PersistenceProvider, PersistenceFactory> = {
       });
       return {repository: new TypeOrmUserRepository(dataSource.getRepository(UserEntity)), dataSource};
     } catch (error) {
-      if (dataSource.isInitialized) await dataSource.destroy();
+      if (dataSource.isInitialized) {
+        await dataSource.destroy();
+      }
       throw error;
     }
   },

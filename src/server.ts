@@ -1,19 +1,19 @@
-import {Express} from 'express';
-import {Server as HttpServer} from 'node:http';
-import {DataSource} from 'typeorm';
-import {createApp} from './app';
-import {AuthService} from './application/auth/auth.service';
-import {HealthService} from './application/health/health.service';
-import {UserService} from './application/users/user.service';
-import {AppConfig, loadConfig} from './config';
-import {RedisConnection} from './infrastructure/cache/redis.connection';
-import {ILoggerService} from './infrastructure/logging/logger.interface';
-import {createLogger} from './infrastructure/logging/logger.service';
-import {selectUserPersistence} from './infrastructure/persistence/select-user-persistence';
-import {PasswordService, TokenService} from './infrastructure/security/security.service';
-import {withFibonacciRetry} from './infrastructure/startup/retry.strategy';
-import {createRoutes} from './presentation/http/base/routes.factory';
-import {logStartupBanner} from './startup-banner';
+import { Express } from 'express';
+import { Server as HttpServer } from 'node:http';
+import { DataSource } from 'typeorm';
+import { createApp } from './app';
+import { AuthService } from './application/auth/auth.service';
+import { HealthService } from './application/health/health.service';
+import { UserService } from './application/users/user.service';
+import { AppConfig, loadConfig } from './config';
+import { RedisConnection } from './infrastructure/cache/redis.connection';
+import { ILoggerService } from './infrastructure/logging/logger.interface';
+import { createLogger } from './infrastructure/logging/logger.service';
+import { selectUserPersistence } from './infrastructure/persistence/select-user-persistence';
+import { PasswordService, TokenService } from './infrastructure/security/security.service';
+import { withFibonacciRetry } from './infrastructure/startup/retry.strategy';
+import { createRoutes } from './presentation/http/base/routes.factory';
+import { logStartupBanner } from './startup-banner';
 
 export interface ServerRuntime {
   readonly loadConfig: typeof loadConfig;
@@ -70,24 +70,28 @@ export async function bootstrapServer(runtime: ServerRuntime = defaultRuntime): 
 
     logStartupBanner(config, logger);
     setupShutdownHooks(server, () => closeInfrastructure(redis, dataSource));
+
     return server;
+
   } catch (error) {
     await closeInfrastructure(redis, dataSource);
     throw error;
   }
 }
 
-const listen = (app: Express, port: number, host: string): Promise<HttpServer> =>
-  new Promise((resolve, reject) => {
+const listen = (app: Express, port: number, host: string): Promise<HttpServer> => {
+  return new Promise((resolve, reject) => {
     const server = app.listen(port, host, () => {
       server.off('error', reject);
       resolve(server);
     });
     server.once('error', reject);
   });
+}
 
 const closeInfrastructure = async (redis?: RedisConnection, dataSource?: DataSource): Promise<void> => {
   const tasks: Promise<unknown>[] = [];
+
   if (redis) {
     tasks.push(redis.close());
   }

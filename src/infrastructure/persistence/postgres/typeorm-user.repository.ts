@@ -1,9 +1,9 @@
 import {Repository} from 'typeorm';
 import {NewUser, NewUserCredential, User, UserCredential, UserUpdate} from '../../../domain/users/user';
-import {UserRepository} from '../../../domain/users/user.repository';
+import {IUserRepository} from '../../../domain/users/user.repository';
 import {UserEntity} from './user.entity';
 
-export class TypeOrmUserRepository implements UserRepository {
+export class TypeOrmUserRepository implements IUserRepository {
   public constructor(private readonly repository: Repository<UserEntity>) {}
 
   public async create(input: NewUser): Promise<User> {
@@ -12,11 +12,14 @@ export class TypeOrmUserRepository implements UserRepository {
 
   public async createCredential(input: NewUserCredential): Promise<UserCredential | null> {
     const credential = {...input, email: input.email.toLowerCase()};
+
     try {
       const entity = await this.repository.save(this.repository.create(credential));
       return {user: this.toUser(entity), email: credential.email, passwordHash: credential.passwordHash};
     } catch (error) {
-      if (this.isUniqueConstraintViolation(error)) return null;
+      if (this.isUniqueConstraintViolation(error)) {
+        return null;
+      }
       throw error;
     }
   }
@@ -35,7 +38,11 @@ export class TypeOrmUserRepository implements UserRepository {
       where: {email: email.toLowerCase()},
       select: {id: true, name: true, surname: true, dateOfBirth: true, email: true, passwordHash: true},
     });
-    if (!entity?.email || !entity.passwordHash) return null;
+
+    if (!entity?.email || !entity.passwordHash) {
+      return null;
+    }
+
     return {user: this.toUser(entity), email: entity.email, passwordHash: entity.passwordHash};
   }
 
@@ -46,8 +53,12 @@ export class TypeOrmUserRepository implements UserRepository {
 
   public async delete(id: string): Promise<User | null> {
     const user = await this.repository.findOneBy({id});
-    if (!user) return null;
+    if (!user) {
+      return null;
+    }
+
     await this.repository.remove(user);
+
     return this.toUser(user);
   }
 
@@ -56,8 +67,12 @@ export class TypeOrmUserRepository implements UserRepository {
   }
 
   private isUniqueConstraintViolation(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) return false;
+    if (typeof error !== 'object' || error === null) {
+      return false;
+    }
+
     const databaseError = error as {code?: unknown; driverError?: {code?: unknown}};
+    
     return databaseError.code === '23505' || databaseError.driverError?.code === '23505';
   }
 }

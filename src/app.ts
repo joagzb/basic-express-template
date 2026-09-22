@@ -1,12 +1,12 @@
 import cors from 'cors';
-import express, {Express} from 'express';
+import express, { Express } from 'express';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
-import {RuntimeAppConfig} from './config';
-import {RouteDefinition} from './presentation/http/base/base.routes';
-import {createErrorHandler, createNotFoundHandler, createRequestLogger} from './presentation/http/middleware/http.middleware';
-import {createOpenApiDocument} from './presentation/http/openapi';
-import {ILoggerService} from 'infrastructure/logging/logger.interface';
+import { RuntimeAppConfig } from './config';
+import { ILoggerService } from './infrastructure/logging/logger.interface';
+import { RouteDefinition } from './presentation/http/base/base.routes';
+import { createErrorHandler, createNotFoundHandler, createRequestLogger } from './presentation/http/middleware/http.middleware';
+import { createOpenApiDocument } from './presentation/http/openapi';
 
 export interface AppConfig {
   readonly config: RuntimeAppConfig;

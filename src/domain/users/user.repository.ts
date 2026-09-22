@@ -1,6 +1,6 @@
 import {NewUser, NewUserCredential, User, UserCredential, UserUpdate} from './user';
 
-export interface UserRepository {
+export interface IUserRepository {
   create(user: NewUser): Promise<User>;
   createCredential(credential: NewUserCredential): Promise<UserCredential | null>;
   findAll(): Promise<User[]>;

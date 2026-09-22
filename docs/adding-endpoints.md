@@ -19,7 +19,7 @@ Skip this layer when the use case has no domain behavior or persistence, as Heal
 
 ## 2. Define DTOs and validation
 
-Put use-case DTOs in `src/application/<feature>/<feature>.dto.ts`. Put typed manual validation in `<feature>.validator.ts`; do not add a validation framework.
+Put use-case DTOs in `src/application/<feature>/<feature>.dto.ts`. Put typed manual validation in `<feature>.validator.ts`; do not add a validation framework or a validator interface only for ceremony. The concrete validator is application-owned use-case policy, unlike repository and external-service ports that isolate replaceable dependencies.
 
 The validator should:
 
@@ -37,7 +37,9 @@ export class ProjectService {
 
   public async create(project: CreateProjectDto): Promise<Project> {
     const result = this.validator.validateNewProject(project);
-    if (!result.valid) throw new ValidationError(result.issues);
+    if (!result.valid) {
+      throw new ValidationError(result.issues);
+    }
     return this.projects.create(result.value);
   }
 }
@@ -45,7 +47,7 @@ export class ProjectService {
 
 ## 3. Implement adapters
 
-Implement repository contracts under `src/infrastructure`. A persisted feature needs both memory and PostgreSQL adapters when it participates in the configured provider choice. Register TypeORM entities and migrations in the existing data source.
+Implement domain-owned repository contracts under `src/infrastructure`. A persisted feature needs both memory and PostgreSQL adapters when it participates in the configured provider choice. Register TypeORM entities and migrations in the existing data source. User persistence currently selects interchangeable memory and TypeORM/PostgreSQL implementations of `IUserRepository`; a future JSON-file adapter belongs here and should require only infrastructure, configuration, and composition changes.
 
 If multiple repositories share one provider lifecycle, evolve the persistence selector into an explicit bundle and return every repository from each enum-keyed provider factory.
 
@@ -88,7 +90,7 @@ export class ProjectRoutes extends BaseRoutes<ProjectController> {
 
 ## 6. Wire dependencies
 
-Add the service to `RouteDependencies`, construct its controller and routes in `routes.factory.ts`, and inject the fully constructed service from `src/server.ts`. Keep `src/app.ts` limited to global HTTP composition.
+Add the service to `RouteDependencies`, construct its controller and routes in `routes.factory.ts`, and inject the fully constructed service from `src/server.ts`. Keep `src/app.ts` limited to global HTTP composition. Shared inward contracts such as the logger port belong under `src/application/shared`; concrete adapters such as Pino remain under `src/infrastructure`.
 
 ## 7. Test and document
 
@@ -99,4 +101,4 @@ Add the service to `RouteDependencies`, construct its controller and routes in `
 
 Update `README.md` for public behavior and this architecture guide when boundaries or wiring change.
 
-The default application startup requires PostgreSQL and runs registered TypeORM migrations automatically. Use memory persistence only as an explicit non-durable choice. Redis remains optional unless the new feature makes it a declared dependency; keep default unit and HTTP tests independent of live PostgreSQL and Redis.
+The default application startup requires PostgreSQL and runs registered TypeORM migrations automatically. Use memory persistence only as an explicit non-durable choice.

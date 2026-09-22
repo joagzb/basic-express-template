@@ -14,7 +14,9 @@ export class TokenService implements ITokenService {
 
   public verify(token: string): IAccessTokenPayload {
     const payload = jwt.verify(token, this.secret);
-    if (typeof payload === 'string' || typeof payload.sub !== 'string') throw new Error('Invalid access token payload');
+    if (typeof payload === 'string' || typeof payload.sub !== 'string') {
+      throw new Error('Invalid access token payload');
+    }
     return payload as JwtPayload & IAccessTokenPayload;
   }
 }
