@@ -21,6 +21,8 @@ Skip this layer when the use case has no domain behavior or persistence, as Heal
 
 Put use-case DTOs in `src/application/<feature>/<feature>.dto.ts`. Put typed manual validation in `<feature>.validator.ts`; do not add a validation framework or a validator interface only for ceremony. The concrete validator is application-owned use-case policy, unlike repository and external-service ports that isolate replaceable dependencies.
 
+Reuse `src/application/shared/common.validator.ts` for the template's calendar-date and email format checks instead of duplicating those rules in feature validators.
+
 The validator should:
 
 - validate required, optional, and format constraints;

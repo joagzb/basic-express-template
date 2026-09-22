@@ -1,7 +1,7 @@
-import { ErrorRequestHandler, RequestHandler } from 'express';
-import { ValidationError } from '../../../application/shared/validation';
-import { ILoggerService } from '../../../infrastructure/logging/logger.interface';
-import { AppError } from '../errors/app-error';
+import {ErrorRequestHandler, RequestHandler} from 'express';
+import {ValidationError} from '../../../application/shared/validators/validation';
+import {ILoggerService} from '../../../infrastructure/logging/logger.interface';
+import {AppError} from '../errors/app-error';
 
 export const createNotFoundHandler = (): RequestHandler => (req, _res, next) => {
   next(new AppError(404, 'NOT_FOUND', `Route ${req.method} ${req.path} was not found`));

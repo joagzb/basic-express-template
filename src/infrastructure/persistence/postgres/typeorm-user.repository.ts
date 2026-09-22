@@ -72,7 +72,7 @@ export class TypeOrmUserRepository implements IUserRepository {
     }
 
     const databaseError = error as {code?: unknown; driverError?: {code?: unknown}};
-    
+
     return databaseError.code === '23505' || databaseError.driverError?.code === '23505';
   }
 }

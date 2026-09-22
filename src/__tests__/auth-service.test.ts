@@ -1,8 +1,8 @@
+import {LoginDto} from '../application/auth/auth.dto';
 import {AuthService} from '../application/auth/auth.service';
-import {ValidationError} from '../application/shared/validation';
+import {ValidationError} from '../application/shared/validators/validation';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
 import {PasswordService, TokenService} from '../infrastructure/security/security.service';
-import {LoginDto} from '../application/auth/auth.dto';
 
 describe('AuthService', () => {
   test('validates and normalizes registration DTOs before creating credentials', async () => {
@@ -28,6 +28,15 @@ describe('AuthService', () => {
     expect(findCredential).not.toHaveBeenCalled();
   });
 
+  test('rejects unexpected login properties before querying persistence', async () => {
+    const repository = new InMemoryUserRepository();
+    const findCredential = jest.spyOn(repository, 'findCredentialByEmail');
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
+
+    await expect(service.login({email: 'test@example.com', password: '123456', unexpected: true} as LoginDto)).rejects.toBeInstanceOf(ValidationError);
+    expect(findCredential).not.toHaveBeenCalled();
+  });
+
   test('enforces the shared login password length boundary', async () => {
     const repository = new InMemoryUserRepository();
     const findCredential = jest.spyOn(repository, 'findCredentialByEmail');
@@ -38,6 +47,15 @@ describe('AuthService', () => {
 
     await expect(service.login({email: 'test@example.com', password: '123456'})).resolves.toBeNull();
     expect(findCredential).toHaveBeenCalledWith('test@example.com');
+  });
+
+  test('uses the shared email format validation before querying persistence', async () => {
+    const repository = new InMemoryUserRepository();
+    const findCredential = jest.spyOn(repository, 'findCredentialByEmail');
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
+
+    await expect(service.login({email: 'test@example.c', password: '123456'})).rejects.toBeInstanceOf(ValidationError);
+    expect(findCredential).not.toHaveBeenCalled();
   });
 
   test('allows exactly one concurrent registration for a normalized email', async () => {

@@ -1,6 +1,6 @@
 import {IPasswordHasher, IPasswordVerifier, ITokenService} from '../../domain/auth/auth';
 import {IUserRepository} from '../../domain/users/user.repository';
-import {ValidationError} from '../shared/validation';
+import {ValidationError} from '../shared/validators/validation';
 import {AuthResultDto, LoginDto, RegisterDto} from './auth.dto';
 import {AuthValidator} from './auth.validator';
 
@@ -38,7 +38,7 @@ export class AuthService {
     }
 
     const registration = result.value;
-    
+
     const credential = await this.users.createCredential({
       name: registration.name,
       surname: registration.surname,

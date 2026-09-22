@@ -1,12 +1,12 @@
-import { DataSource } from 'typeorm';
-import { AppConfig, PersistenceProvider } from '../../config';
-import { IUserRepository } from '../../domain/users/user.repository';
-import { ILoggerService } from '../logging/logger.interface';
-import { RetryStrategy } from '../startup/retry.strategy';
-import { InMemoryUserRepository } from './memory/in-memory-user.repository';
-import { createPostgresDataSource } from './postgres/data-source';
-import { TypeOrmUserRepository } from './postgres/typeorm-user.repository';
-import { UserEntity } from './postgres/user.entity';
+import {DataSource} from 'typeorm';
+import {AppConfig, PersistenceProvider} from '../../config';
+import {IUserRepository} from '../../domain/users/user.repository';
+import {ILoggerService} from '../logging/logger.interface';
+import {RetryStrategy} from '../startup/retry.strategy';
+import {InMemoryUserRepository} from './memory/in-memory-user.repository';
+import {createPostgresDataSource} from './postgres/data-source';
+import {TypeOrmUserRepository} from './postgres/typeorm-user.repository';
+import {UserEntity} from './postgres/user.entity';
 
 export interface UserPersistence {
   readonly repository: IUserRepository;

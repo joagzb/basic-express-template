@@ -1,6 +1,6 @@
 import {User} from '../../domain/users/user';
 import {IUserRepository} from '../../domain/users/user.repository';
-import {ValidationError} from '../shared/validation';
+import {ValidationError} from '../shared/validators/validation';
 import {CreateUserDto, UpdateUserDto} from './user.dto';
 import {UserValidator} from './user.validator';
 
@@ -16,7 +16,7 @@ export class UserService {
     if (!result.valid) {
       throw new ValidationError(result.issues);
     }
-    
+
     return this.users.create(result.value);
   }
 

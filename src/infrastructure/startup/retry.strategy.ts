@@ -1,5 +1,5 @@
-import { setTimeout } from 'node:timers/promises';
-import { ILoggerService } from '../logging/logger.interface';
+import {setTimeout} from 'node:timers/promises';
+import {ILoggerService} from '../logging/logger.interface';
 
 export interface FibonacciRetryOptions {
   readonly name: string;
@@ -21,7 +21,7 @@ const calculateFibonacci = (n: number): number => {
     a = b;
     b = temp;
   }
-  
+
   return b;
 };
 

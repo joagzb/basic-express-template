@@ -1,7 +1,10 @@
-import {ValidationIssue, ValidationResult} from '../shared/validation';
+import {ValidationIssue, ValidationResult} from 'application/shared/validators/validation.interface';
+import {CommonValidator} from '../shared/validators/common.validator';
 import {LoginDto, RegisterDto} from './auth.dto';
 
 export class AuthValidator {
+  private readonly commonValidator = new CommonValidator();
+
   public validateLogin(credentials: LoginDto): ValidationResult<LoginDto> {
     const issues: ValidationIssue[] = [];
 
@@ -16,7 +19,7 @@ export class AuthValidator {
       issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.email'});
     } else if (email?.length === 0) {
       issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.email'});
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email!)) {
+    } else if (!this.commonValidator.isEmail(email!)) {
       issues.push({code: 'invalid_string', message: 'Invalid email', path: 'body.email'});
     }
 
@@ -64,7 +67,7 @@ export class AuthValidator {
       issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.dateOfBirth'});
     } else if (dateOfBirth?.length === 0) {
       issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.dateOfBirth'});
-    } else if (!this.isDate(dateOfBirth!)) {
+    } else if (!this.commonValidator.isDate(dateOfBirth!)) {
       issues.push({code: 'invalid_string', message: 'Invalid date', path: 'body.dateOfBirth'});
     }
 
@@ -75,7 +78,7 @@ export class AuthValidator {
       issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.email'});
     } else if (email?.length === 0) {
       issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.email'});
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email!)) {
+    } else if (!this.commonValidator.isEmail(email!)) {
       issues.push({code: 'invalid_string', message: 'Invalid email', path: 'body.email'});
     }
 
@@ -89,10 +92,5 @@ export class AuthValidator {
     }
 
     return issues.length > 0 ? {valid: false, issues} : {valid: true, value: {name: name!, surname: surname!, dateOfBirth: dateOfBirth!, email: email!, password: password!}};
-  }
-
-  private isDate(value: string): boolean {
-    const date = new Date(`${value}T00:00:00.000Z`);
-    return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
   }
 }

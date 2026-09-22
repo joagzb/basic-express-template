@@ -9,7 +9,7 @@ export class InMemoryUserRepository implements IUserRepository {
   public async create(input: NewUser): Promise<User> {
     const user: User = {id: randomUUID(), ...input};
     this.users.set(user.id, user);
-    
+
     return user;
   }
 

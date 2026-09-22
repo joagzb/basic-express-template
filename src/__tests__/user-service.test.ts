@@ -1,4 +1,4 @@
-import {ValidationError} from '../application/shared/validation';
+import {ValidationError} from '../application/shared/validators/validation';
 import {CreateUserDto} from '../application/users/user.dto';
 import {UserService} from '../application/users/user.service';
 import {IUserRepository} from '../domain/users/user.repository';
@@ -35,6 +35,17 @@ describe('UserService', () => {
 
     await expect(service.create({name: '', unexpected: true} as unknown as CreateUserDto)).rejects.toBeInstanceOf(ValidationError);
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects unexpected create properties before persistence', async () => {
+    const create = jest.fn();
+    const repository = {create} as unknown as IUserRepository;
+    const service = new UserService(repository);
+
+    await expect(service.create({name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10', unexpected: true} as unknown as CreateUserDto)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 
   test('validates and normalizes updates before persistence', async () => {

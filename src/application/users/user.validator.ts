@@ -1,7 +1,9 @@
-import {ValidationIssue, ValidationResult} from '../shared/validation';
+import {ValidationIssue, ValidationResult} from 'application/shared/validators/validation.interface';
+import {CommonValidator} from '../shared/validators/common.validator';
 import {CreateUserDto, UpdateUserDto} from './user.dto';
 
 export class UserValidator {
+  private readonly commonValidator = new CommonValidator();
 
   public validateNewUser(user: CreateUserDto): ValidationResult<CreateUserDto> {
     const issues: ValidationIssue[] = [];
@@ -35,7 +37,7 @@ export class UserValidator {
       issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.dateOfBirth'});
     } else if (dateOfBirth?.length === 0) {
       issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.dateOfBirth'});
-    } else if (!this.isDate(dateOfBirth!)) {
+    } else if (!this.commonValidator.isDate(dateOfBirth!)) {
       issues.push({code: 'invalid_string', message: 'Invalid date', path: 'body.dateOfBirth'});
     }
 
@@ -79,7 +81,7 @@ export class UserValidator {
         issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.dateOfBirth'});
       } else if (user.dateOfBirth.trim().length === 0) {
         issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.dateOfBirth'});
-      } else if (!this.isDate(user.dateOfBirth.trim())) {
+      } else if (!this.commonValidator.isDate(user.dateOfBirth.trim())) {
         issues.push({code: 'invalid_string', message: 'Invalid date', path: 'body.dateOfBirth'});
       } else {
         value.dateOfBirth = user.dateOfBirth.trim();
@@ -87,10 +89,5 @@ export class UserValidator {
     }
 
     return issues.length > 0 ? {valid: false, issues} : {valid: true, value};
-  }
-
-  private isDate(value: string): boolean {
-    const date = new Date(`${value}T00:00:00.000Z`);
-    return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
   }
 }

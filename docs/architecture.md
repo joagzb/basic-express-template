@@ -35,6 +35,7 @@ UserRoutes
 - `src/domain/users/user.repository.ts` defines the inward-facing `IUserRepository` persistence port.
 - `src/application/users/user.dto.ts` defines create and update use-case inputs.
 - `src/application/users/user.validator.ts` manually validates and normalizes typed DTO fields without a validation framework.
+- `src/application/shared/common.validator.ts` provides the shared calendar-date and email format checks used by feature validators.
 - `src/application/users/user.service.ts` rejects invalid DTOs before calling the repository.
 - `src/presentation/http/users/user.controller.ts` extracts `body` or `params`, delegates, selects status codes, and forwards errors.
 - `src/presentation/http/users/user.routes.ts` defines the protected `/users` endpoints.
@@ -43,13 +44,13 @@ Application DTOs are not persistence entities. They describe one use case and ma
 
 ## Auth and Health
 
-Auth mirrors User with `auth.dto.ts`, `auth.validator.ts`, `AuthService`, `AuthController`, and `AuthRoutes`. The controller passes DTO-shaped bodies to the service; the service rejects malformed or unexpected body fields before persistence. Password hashing and JWT behavior are domain contracts implemented by infrastructure and injected into `AuthService`.
+Auth mirrors User with `auth.dto.ts`, `auth.validator.ts`, `AuthService`, `AuthController`, and `AuthRoutes`. The controller passes DTO-shaped bodies to the service; the service rejects malformed or unexpected body fields before persistence. `AuthValidator` reuses the shared common validator for date and email formats. Password hashing and JWT behavior are domain contracts implemented by infrastructure and injected into `AuthService`.
 
 Health has no repository. `HealthService` constructs `HealthDto`; `HealthController` only maps it to HTTP; `HealthRoutes` declares `/health/ping`.
 
 ## Composition and errors
 
-`src/server.ts` selects persistence, connects optional Redis, constructs services, and calls `createRoutes()`. User and Auth services expose typed application DTO contracts and own their concrete manual validators so values are checked before repository calls. The logger port lives at `src/infrastructure/logging/logger.interface.ts`; the Pino implementation at `src/infrastructure/logging/logger.service.ts` implements that inward contract. `src/app.ts` mounts injected route definitions, OpenAPI, not-found handling, and the final error middleware. It never connects external services or opens a listener.
+`src/server.ts` selects persistence, connects optional Redis, constructs services, and calls `createRoutes()`. User and Auth services expose typed application DTO contracts and own their concrete manual validators so values are checked before repository calls. The logger port lives at `src/application/shared/logger.interface.ts`; the Pino implementation at `src/infrastructure/logging/logger.service.ts` implements that inward contract. `src/app.ts` mounts injected route definitions, OpenAPI, not-found handling, and the final error middleware. It never connects external services or opens a listener.
 
 Application validation throws `ValidationError`. Controllers forward errors with `next(error)`, and HTTP middleware maps known errors to stable JSON responses while sanitizing unexpected failures.
 
