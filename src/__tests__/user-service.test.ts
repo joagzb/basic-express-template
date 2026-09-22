@@ -1,13 +1,13 @@
 import {UserService} from '../application/users/user.service';
-import {UserValidator} from '../application/users/user.validator';
 import {UserRepository} from '../domain/users/user.repository';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
 import {ValidationError} from '../application/shared/validation';
+import {CreateUserDto} from '../application/users/user.dto';
 
 describe('UserService', () => {
   test('lists users through the repository contract', async () => {
     const repository = new InMemoryUserRepository();
-    const service = new UserService(repository, new UserValidator());
+    const service = new UserService(repository);
     const created = await service.create({name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10'});
 
     await expect(service.findAll()).resolves.toEqual([created]);
@@ -17,7 +17,7 @@ describe('UserService', () => {
     const user = {id: 'provider-user', name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10'};
     const findById = jest.fn().mockResolvedValueOnce(user).mockResolvedValueOnce(null);
     const repository = {findById} as unknown as UserRepository;
-    const service = new UserService(repository, new UserValidator());
+    const service = new UserService(repository);
 
     await expect(service.findById('provider-user')).resolves.toEqual(user);
     await expect(service.findById('missing-user')).resolves.toBeNull();
@@ -28,19 +28,19 @@ describe('UserService', () => {
   test('constructs normalized DTOs and rejects invalid input before persistence', async () => {
     const create = jest.fn();
     const repository = {create} as unknown as UserRepository;
-    const service = new UserService(repository, new UserValidator());
+    const service = new UserService(repository);
 
     await service.create({name: ' Ada ', surname: ' Lovelace ', dateOfBirth: '1815-12-10'});
     expect(create).toHaveBeenCalledWith({name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10'});
 
-    await expect(service.create({name: '', unexpected: true})).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.create({name: '', unexpected: true} as unknown as CreateUserDto)).rejects.toBeInstanceOf(ValidationError);
     expect(create).toHaveBeenCalledTimes(1);
   });
 
   test('validates and normalizes updates before persistence', async () => {
     const update = jest.fn().mockResolvedValue({id: 'user-1', name: 'Ada', surname: 'Byron', dateOfBirth: '1815-12-10'});
     const repository = {update} as unknown as UserRepository;
-    const service = new UserService(repository, new UserValidator());
+    const service = new UserService(repository);
 
     await service.update(' user-1 ', {surname: ' Byron '});
     expect(update).toHaveBeenCalledWith('user-1', {surname: 'Byron'});

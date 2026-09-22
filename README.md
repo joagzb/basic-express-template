@@ -4,19 +4,23 @@ A compact Express API starter with TypeScript, four explicit layers, swappable p
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20+ (`.nvmrc` pins the repository's current Node.js 22 release)
 - npm 10+
-- Docker with Docker Compose (optional)
+- PostgreSQL when using the default persistence provider
+- Redis only when `REDIS_ENABLED=true`
+- Docker with Docker Compose (optional alternative for local dependencies)
 
 ## Run the app
 
-For a local npm run:
+The development example defaults to PostgreSQL at `localhost:5433`. Start a compatible PostgreSQL instance with the credentials in `.env.development.example`, then run:
 
 ```bash
 npm install
 cp .env.development.example .env.development
 npm run dev
 ```
+
+TypeORM runs the registered migrations during PostgreSQL startup; schema synchronization is disabled. For an external-service-free, process-local run, explicitly set `PERSISTENCE_PROVIDER=memory` and leave `REDIS_ENABLED=false`. Memory data is lost when the process exits and is not the default.
 
 Alternatively, start the development stack with Docker Compose:
 
@@ -30,7 +34,7 @@ The API runs at <http://localhost:3000/api>, health at <http://localhost:3000/ap
 
 The app loads `.env.<NODE_ENV>` followed by `.env`; development is the default environment. Copy the matching `.env.development.example`, `.env.test.example`, or `.env.production.example` file and never commit real secrets.
 
-`PERSISTENCE_PROVIDER` selects `postgres` (the default) or process-local `memory`. Configure `POSTGRES_*` when using PostgreSQL. Redis is independent and uses `REDIS_ENABLED` plus `REDIS_*`. Server and security settings include `HOST`, `PORT`, `URL_PREFIX`, `JWT_SECRET`, `JWT_EXPIRES_IN_SECONDS`, and `BCRYPT_ROUNDS`.
+`PERSISTENCE_PROVIDER` selects `postgres` (the default) or process-local `memory`. Configure `POSTGRES_*` when using PostgreSQL. Redis is an optional, independent startup dependency selected with `REDIS_ENABLED`; when enabled, configure `REDIS_*` and ensure Redis is reachable before startup. Server and security settings include `HOST`, `PORT`, `URL_PREFIX`, `JWT_SECRET`, `JWT_EXPIRES_IN_SECONDS`, and `BCRYPT_ROUNDS`.
 
 ## API and authentication
 
@@ -49,11 +53,13 @@ curl http://localhost:3000/api/users \
   -H "Authorization: Bearer <access-token>"
 ```
 
-Protected user routes are `GET` or `POST /api/users` and `GET`, `PATCH`, or `DELETE /api/users/:id`. Create, lookup, and successful update operations return user records; delete returns an empty `201` response. Singular `/api/user` paths are not mounted. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
+Registration requires `name`, `surname`, `dateOfBirth` (`YYYY-MM-DD`), `email`, and a password of at least six characters. Login requires `email` and the same password minimum. Names and email are normalized; passwords remain opaque. Auth endpoints reject unexpected body fields.
+
+Protected user routes are `GET` or `POST /api/users` and `GET`, `PATCH`, or `DELETE /api/users/:id`. User create requires `name`, `surname`, and `dateOfBirth`; update accepts a non-empty subset of those fields. Create, lookup, and successful update operations return user records; delete returns an empty `201` response. Singular `/api/user` paths are not mounted. Swagger UI at `/api/docs` documents request examples and supports Bearer-token authorization.
 
 ## Structure
 
-The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `src/server.ts`. The User feature is the reference implementation: DTOs and validators live beside `UserService`, `UserController` only delegates and maps HTTP responses, and `UserRoutes` explicitly declares endpoints. Auth follows the same pattern, while Health uses a small application service without persistence. `src/app.ts` builds Express from injected route definitions and has no listener or external-connection side effects. See [Architecture](docs/architecture.md) and [Add an endpoint set](docs/adding-endpoints.md).
+The source uses `domain`, `application` (Service Layer), `infrastructure`, and `presentation`, with explicit composition in `src/server.ts`. The User feature is the reference implementation: the service accepts and validates application DTOs with its manual validator, the controller only passes request values and maps HTTP responses, and routes are declared explicitly. Auth follows the same DTO-based pattern, and Health uses a small application service without persistence. `src/app.ts` builds Express from injected route definitions and has no listener or external-connection side effects. See [Architecture](docs/architecture.md) and [Add an endpoint set](docs/adding-endpoints.md).
 
 ## Test and build
 
@@ -63,7 +69,7 @@ npm run check
 npm run build
 ```
 
-Production-shaped and isolated test Compose files are also included.
+`npm test` and `npm run check` use in-memory persistence with Redis disabled, so they do not require external services. The PostgreSQL/Redis integration suite is opt-in through `npm run test:integration` and requires the configured test services. Production-shaped and isolated test Compose files are also included.
 
 ## Production note
 

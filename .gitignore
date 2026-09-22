@@ -5,6 +5,31 @@
 *.project
 *.sublime-workspace
 *.sublime-project
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.idea/
+*.iml
+*.iws
+*.ipr
+*.idea
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+.settings/
+.nbproject/
+*.sln
+*.suo
+*.user
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
 
 # Dependency directories
 node_modules
@@ -124,14 +149,29 @@ docker-compose.override.yml
 .firebaserc
 .firebase/
 
-# JetBrains IDEs
-.idea/
-
 # pnpm (alternative package manager)
 pnpm-lock.yaml
 .pnpm-store
-
-# AI
-.atl
-.agents
+.atl/
+.agents/
+skills-lock.json
+.cursor/
+.cursorrules.local
+.windsurf/
+.windsurfrules.local
+.copilot/
+.claude/
+claude.json
+.claude-cache/
+.aider*
+.aider.chat.history.md
+.aider.input.history
+.clinerules.local
+.roomodes.local
+.roo/
+.agent/
+.agent-cache/
+.llm/
+.prompts/cache/
+*.agent.log
 skills-lock.json

@@ -6,11 +6,11 @@ import {RuntimeAppConfig} from './config';
 import {RouteDefinition} from './presentation/http/base/base.routes';
 import {createErrorHandler, createNotFoundHandler, createRequestLogger} from './presentation/http/middleware/http.middleware';
 import {createOpenApiDocument} from './presentation/http/openapi';
-import { LoggerService } from 'infrastructure/logging/logger.interface';
+import {ILoggerService} from 'infrastructure/logging/logger.interface';
 
 export interface AppConfig {
   readonly config: RuntimeAppConfig;
-  readonly logger: LoggerService;
+  readonly logger: ILoggerService;
   readonly routes: RouteDefinition[];
 }
 

@@ -175,7 +175,7 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           required: ['email', 'password'],
           properties: {
             email: {type: 'string', format: 'email'},
-            password: {type: 'string', format: 'password'},
+            password: {type: 'string', format: 'password', minLength: 6},
           },
         },
         LoginResponseDto: {
@@ -192,11 +192,11 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           required: ['name', 'surname', 'dateOfBirth', 'email', 'password'],
           properties: {
-            name: {type: 'string'},
-            surname: {type: 'string'},
+            name: {type: 'string', minLength: 1},
+            surname: {type: 'string', minLength: 1},
             dateOfBirth: {type: 'string', format: 'date'},
             email: {type: 'string', format: 'email'},
-            password: {type: 'string', format: 'password'},
+            password: {type: 'string', format: 'password', minLength: 6},
           },
         },
         CreateUserRequestDto: {
@@ -204,8 +204,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           required: ['name', 'surname', 'dateOfBirth'],
           properties: {
-            name: {type: 'string'},
-            surname: {type: 'string'},
+            name: {type: 'string', minLength: 1},
+            surname: {type: 'string', minLength: 1},
             dateOfBirth: {type: 'string', format: 'date'},
           },
         },
@@ -214,8 +214,8 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
           additionalProperties: false,
           minProperties: 1,
           properties: {
-            name: {type: 'string'},
-            surname: {type: 'string'},
+            name: {type: 'string', minLength: 1},
+            surname: {type: 'string', minLength: 1},
             dateOfBirth: {type: 'string', format: 'date'},
           },
         },

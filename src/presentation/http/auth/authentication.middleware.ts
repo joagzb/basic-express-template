@@ -1,6 +1,6 @@
-import { NextFunction, Request, RequestHandler, Response } from 'express';
-import { ITokenService } from '../../../domain/auth/auth';
-import { AppError } from '../errors/app-error';
+import {NextFunction, Request, RequestHandler, Response} from 'express';
+import {ITokenService} from '../../../domain/auth/auth';
+import {AppError} from '../errors/app-error';
 
 export interface AuthenticatedPrincipal {
   readonly subject: string;

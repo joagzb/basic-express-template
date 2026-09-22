@@ -5,7 +5,7 @@ export interface LogMethod {
   (context: LogContext, message?: string): void;
 }
 
-export interface LoggerService {
+export interface ILoggerService {
   readonly trace: LogMethod;
   readonly debug: LogMethod;
   readonly info: LogMethod;

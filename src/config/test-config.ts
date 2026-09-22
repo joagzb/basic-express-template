@@ -1,7 +1,7 @@
 import {AppConfig, PersistenceProvider} from '../config';
 
 export const testConfig: AppConfig = {
-  app: {name: 'basic-express-server', version: '1.1.0'},
+  app: {name: 'basic-express-server', version: '1.0.3'},
   environment: 'test',
   server: {host: '127.0.0.1', port: 3001, apiPrefix: '/api'},
   startup: {connectRetries: 1, retryDelayMs: 0},

@@ -2,7 +2,7 @@ import {RuntimeAppConfig} from './config.types';
 import {ParsedEnvironment} from './env';
 
 export const createAppConfig = (environment: ParsedEnvironment): RuntimeAppConfig => ({
-  app: {name: 'basic-express-server', version: '1.1.0'},
+  app: {name: 'basic-express-server', version: '1.0.3'},
   environment: environment.NODE_ENV,
   server: {
     host: environment.HOST,

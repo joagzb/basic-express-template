@@ -2,10 +2,8 @@ import {Router} from 'express';
 import request from 'supertest';
 import {createApp} from '../app';
 import {AuthService} from '../application/auth/auth.service';
-import {AuthValidator} from '../application/auth/auth.validator';
 import {HealthService} from '../application/health/health.service';
 import {UserService} from '../application/users/user.service';
-import {UserValidator} from '../application/users/user.validator';
 import {testConfig} from '../config/test-config';
 import {createLogger} from '../infrastructure/logging/logger.service';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
@@ -17,14 +15,14 @@ import {createOpenApiDocument} from '../presentation/http/openapi';
 
 const tokenService = new TokenService(testConfig.security.jwtSecret, testConfig.security.jwtExpiresInSeconds);
 
-const createTestApp = (repository = new InMemoryUserRepository(), userService = new UserService(repository, new UserValidator()), additionalRoutes: RouteDefinition[] = []) =>
+const createTestApp = (repository = new InMemoryUserRepository(), userService = new UserService(repository), additionalRoutes: RouteDefinition[] = []) =>
   createApp({
     config: testConfig,
     logger: createLogger(testConfig),
     routes: [
       ...createRoutes({
         userService,
-        authService: new AuthService(repository, new PasswordService(testConfig.security.bcryptRounds), tokenService, new AuthValidator()),
+        authService: new AuthService(repository, new PasswordService(testConfig.security.bcryptRounds), tokenService),
         healthService: new HealthService(),
         accessTokenService: tokenService,
       }),
@@ -90,15 +88,6 @@ describe('HTTP application', () => {
 
     const boundary = await request(app).post('/api/auth/login').send({email: 'ada@example.com', password: '123456'}).expect(200);
     expect(boundary.body).toEqual({accessToken: expect.any(String), tokenType: 'Bearer'});
-  });
-
-  test.each([
-    ['/api/auth/register', {name: 'Ada', surname: 'Lovelace', dateOfBirth: '1815-12-10', email: 'ada@example.com', password: 'correct-password'}],
-    ['/api/auth/login', {email: 'ada@example.com', password: 'correct-password'}],
-  ])('rejects unexpected query parameters on %s', async (path, body) => {
-    const response = await request(createTestApp()).post(`${path}?unexpected=true`).send(body).expect(400);
-
-    expect(response.body.error.details.issues).toEqual([{code: 'unrecognized_keys', message: "Unrecognized key(s) in object: 'unexpected'", path: 'query'}]);
   });
 
   test('returns one success and one conflict for concurrent duplicate registration', async () => {
@@ -215,7 +204,7 @@ describe('HTTP application', () => {
     const router = Router();
     router.get('/expected', (_request, _response, next) => next(new AppError(409, 'EXPECTED_ERROR', 'Expected failure')));
     const repository = new InMemoryUserRepository();
-    const app = createTestApp(repository, new UserService(repository, new UserValidator()), [{path: '/test', router}]);
+    const app = createTestApp(repository, new UserService(repository), [{path: '/test', router}]);
 
     expect((await request(app).get('/api/test/expected').expect(409)).body.error.code).toBe('EXPECTED_ERROR');
   });
@@ -226,7 +215,7 @@ describe('HTTP application', () => {
       throw new Error('sensitive implementation detail');
     });
     const repository = new InMemoryUserRepository();
-    const app = createTestApp(repository, new UserService(repository, new UserValidator()), [{path: '/test', router}]);
+    const app = createTestApp(repository, new UserService(repository), [{path: '/test', router}]);
 
     const response = await request(app).get('/api/test/boom').expect(500);
     expect(response.body.error).toMatchObject({code: 'INTERNAL_ERROR', message: 'An unexpected error occurred'});

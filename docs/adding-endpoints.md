@@ -27,17 +27,16 @@ The validator should:
 - normalize accepted values, such as trimming names and lowercasing email;
 - return a typed `ValidationResult<Dto>`.
 
-The service converts a failed result into `ValidationError` before invoking a repository. It passes only the validated DTO value inward.
+The service owns its validator, converts a failed result into `ValidationError` before invoking a repository, and passes only the validated DTO value inward.
 
 ```ts
 export class ProjectService {
-  public constructor(
-    private readonly projects: ProjectRepository,
-    private readonly validator: ProjectValidator,
-  ) {}
+  private readonly validator = new ProjectValidator();
 
-  public async create(input: unknown): Promise<Project> {
-    const result = this.validator.validateNewProject(input);
+  public constructor(private readonly projects: ProjectRepository) {}
+
+  public async create(project: CreateProjectDto): Promise<Project> {
+    const result = this.validator.validateNewProject(project);
     if (!result.valid) throw new ValidationError(result.issues);
     return this.projects.create(result.value);
   }
@@ -52,7 +51,7 @@ If multiple repositories share one provider lifecycle, evolve the persistence se
 
 ## 4. Add the controller
 
-Use plain Express `Request`, `Response`, and `NextFunction`. Extract raw request values, delegate once, map the HTTP response, and forward failures.
+Use plain Express `Request`, `Response`, and `NextFunction`. Pass DTO-shaped request values, delegate once, map the HTTP response, and forward failures.
 
 ```ts
 export class ProjectController {
@@ -99,3 +98,5 @@ Add the service to `RouteDependencies`, construct its controller and routes in `
 - OpenAPI: paths, request DTOs, response DTOs, errors, and security.
 
 Update `README.md` for public behavior and this architecture guide when boundaries or wiring change.
+
+The default application startup requires PostgreSQL and runs registered TypeORM migrations automatically. Use memory persistence only as an explicit non-durable choice. Redis remains optional unless the new feature makes it a declared dependency; keep default unit and HTTP tests independent of live PostgreSQL and Redis.

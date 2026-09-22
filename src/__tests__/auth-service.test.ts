@@ -1,13 +1,13 @@
 import {AuthService} from '../application/auth/auth.service';
-import {AuthValidator} from '../application/auth/auth.validator';
 import {ValidationError} from '../application/shared/validation';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
 import {PasswordService, TokenService} from '../infrastructure/security/security.service';
+import {LoginDto} from '../application/auth/auth.dto';
 
 describe('AuthService', () => {
   test('validates and normalizes registration DTOs before creating credentials', async () => {
     const repository = new InMemoryUserRepository();
-    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new AuthValidator());
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
 
     await expect(service.register({name: ' Test ', surname: ' User ', dateOfBirth: '2000-01-01', email: ' TEST@example.com ', password: 'secret'})).resolves.toEqual({
       accessToken: expect.any(String),
@@ -22,16 +22,16 @@ describe('AuthService', () => {
   test('rejects malformed login DTOs before querying persistence', async () => {
     const repository = new InMemoryUserRepository();
     const findCredential = jest.spyOn(repository, 'findCredentialByEmail');
-    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new AuthValidator());
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
 
-    await expect(service.login({email: 'not-an-email', password: '', unexpected: true})).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.login({email: 'not-an-email', password: '', unexpected: true} as LoginDto)).rejects.toBeInstanceOf(ValidationError);
     expect(findCredential).not.toHaveBeenCalled();
   });
 
   test('enforces the shared login password length boundary', async () => {
     const repository = new InMemoryUserRepository();
     const findCredential = jest.spyOn(repository, 'findCredentialByEmail');
-    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new AuthValidator());
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
 
     await expect(service.login({email: 'test@example.com', password: '12345'})).rejects.toBeInstanceOf(ValidationError);
     expect(findCredential).not.toHaveBeenCalled();
@@ -42,7 +42,7 @@ describe('AuthService', () => {
 
   test('allows exactly one concurrent registration for a normalized email', async () => {
     const repository = new InMemoryUserRepository();
-    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new AuthValidator());
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
     const input = {name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', password: 'secret'};
 
     const results = await Promise.all([service.register(input), service.register({...input, email: 'TEST@example.com'})]);
@@ -54,7 +54,7 @@ describe('AuthService', () => {
 
   test('preserves passwords as opaque values', async () => {
     const repository = new InMemoryUserRepository();
-    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new AuthValidator());
+    const service = new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60));
 
     await service.register({name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', password: ' secret '});
 

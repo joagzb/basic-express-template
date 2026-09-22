@@ -1,12 +1,12 @@
 import {setTimeout} from 'node:timers/promises';
-import {LoggerService} from '../logging/logger.interface';
+import {ILoggerService} from '../logging/logger.interface';
 
 export interface FibonacciRetryOptions {
   readonly name: string;
   readonly target: string;
   readonly maxRetries: number;
   readonly baseDelayMs: number; // The multiplier unit for the delay (e.g., 500ms)
-  readonly logger: LoggerService;
+  readonly logger: ILoggerService;
   readonly fn: () => Promise<void>;
 }
 

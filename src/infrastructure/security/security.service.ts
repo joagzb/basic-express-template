@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
-import jwt, { JwtPayload } from 'jsonwebtoken';
-import { IAccessTokenPayload, IPasswordHasher, IPasswordVerifier, ITokenService } from '../../domain/auth/auth';
+import jwt, {JwtPayload} from 'jsonwebtoken';
+import {IAccessTokenPayload, IPasswordHasher, IPasswordVerifier, ITokenService} from '../../domain/auth/auth';
 
 export class TokenService implements ITokenService {
   public constructor(

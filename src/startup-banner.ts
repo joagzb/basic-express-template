@@ -1,5 +1,5 @@
 import {AppConfig, PersistenceProvider} from './config';
-import {LoggerService} from './infrastructure/logging/logger.interface';
+import {ILoggerService} from './infrastructure/logging/logger.interface';
 export const databaseProviders: Record<PersistenceProvider, string> = {
   [PersistenceProvider.POSTGRES]: 'postgres',
   [PersistenceProvider.MEMORY]: 'in-memory',
@@ -14,7 +14,7 @@ export interface StartupBanner {
   readonly redis: 'enabled' | 'disabled';
 }
 
-export const logStartupBanner = (config: AppConfig, logger: LoggerService): void => {
+export const logStartupBanner = (config: AppConfig, logger: ILoggerService): void => {
   const banner: StartupBanner = {
     app: config.app.name,
     version: config.app.version,

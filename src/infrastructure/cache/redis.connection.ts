@@ -1,13 +1,13 @@
 import {createClient, RedisClientType} from 'redis';
 import {AppConfig} from '../../config';
-import {LoggerService} from '../logging/logger.interface';
+import {ILoggerService} from '../logging/logger.interface';
 import {RedisCommandClient, RedisService} from './redis.service';
 
 export class RedisConnection {
   private readonly client: RedisClientType;
   public readonly service: RedisService;
 
-  public constructor(config: AppConfig, logger: LoggerService) {
+  public constructor(config: AppConfig, logger: ILoggerService) {
     this.client = createClient({
       url: config.redis.url,
       disableOfflineQueue: true,

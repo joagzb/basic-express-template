@@ -27,6 +27,8 @@ describe('configuration boundaries', () => {
     const config = parseConfig({URL_PREFIX: '/v1/'});
     expect(config.server.apiPrefix).toBe('/v1');
     expect(createOpenApiDocument(config).servers).toEqual([{url: '/v1'}]);
+    expect(config.app.version).toBe('1.0.3');
+    expect(createOpenApiDocument(config).info.version).toBe(config.app.version);
     expect(parseConfig({URL_PREFIX: '/'}).server.apiPrefix).toBe('');
   });
 

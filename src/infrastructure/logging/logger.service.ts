@@ -1,12 +1,12 @@
 import pino, {DestinationStream, Level, Logger} from 'pino';
 import {AppConfig} from '../../config';
-import {LogContext, LoggerService, LogMethod} from './logger.interface';
+import {LogContext, ILoggerService, LogMethod} from './logger.interface';
 
 export interface LoggerDestination {
   write(message: string): unknown;
 }
 
-export class PinoLoggerService implements LoggerService {
+export class PinoLoggerService implements ILoggerService {
   private readonly logger: Logger;
   public readonly trace: LogMethod;
   public readonly debug: LogMethod;
@@ -62,4 +62,4 @@ export class PinoLoggerService implements LoggerService {
   }
 }
 
-export const createLogger = (config: Pick<AppConfig, 'logging'>, destination?: LoggerDestination): LoggerService => new PinoLoggerService(config, destination);
+export const createLogger = (config: Pick<AppConfig, 'logging'>, destination?: LoggerDestination): ILoggerService => new PinoLoggerService(config, destination);

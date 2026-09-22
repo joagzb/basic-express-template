@@ -1,7 +1,7 @@
 import {DataSource} from 'typeorm';
 import {AppConfig, PersistenceProvider} from '../../config';
 import {UserRepository} from '../../domain/users/user.repository';
-import {LoggerService} from '../logging/logger.interface';
+import {ILoggerService} from '../logging/logger.interface';
 import {RetryStrategy} from '../startup/retry.strategy';
 import {InMemoryUserRepository} from './memory/in-memory-user.repository';
 import {createPostgresDataSource} from './postgres/data-source';
@@ -13,7 +13,7 @@ export interface UserPersistence {
   readonly dataSource?: DataSource;
 }
 
-type PersistenceFactory = (config: AppConfig, retry: RetryStrategy, logger: LoggerService, dataSourceFactory: typeof createPostgresDataSource) => Promise<UserPersistence>;
+type PersistenceFactory = (config: AppConfig, retry: RetryStrategy, logger: ILoggerService, dataSourceFactory: typeof createPostgresDataSource) => Promise<UserPersistence>;
 
 const persistenceFactories: Record<PersistenceProvider, PersistenceFactory> = {
   [PersistenceProvider.MEMORY]: async () => ({repository: new InMemoryUserRepository()}),
@@ -39,7 +39,7 @@ const persistenceFactories: Record<PersistenceProvider, PersistenceFactory> = {
 export const selectUserPersistence = async (
   config: AppConfig,
   retry: RetryStrategy,
-  logger: LoggerService,
+  logger: ILoggerService,
   dataSourceFactory: typeof createPostgresDataSource = createPostgresDataSource,
 ): Promise<UserPersistence> => {
   return persistenceFactories[config.persistence.provider](config, retry, logger, dataSourceFactory);
