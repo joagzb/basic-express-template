@@ -21,7 +21,7 @@ Skip this layer when the use case has no domain behavior or persistence, as Heal
 
 Put use-case DTOs in `src/application/<feature>/<feature>.dto.ts`. Put typed manual validation in `<feature>.validator.ts`; do not add a validation framework or a validator interface only for ceremony. The concrete validator is application-owned use-case policy, unlike repository and external-service ports that isolate replaceable dependencies.
 
-Reuse `src/application/shared/common.validator.ts` for the template's calendar-date and email format checks instead of duplicating those rules in feature validators.
+Reuse `src/application/shared/validators/common.validator.ts` for the template's calendar-date and email format checks instead of duplicating those rules in feature validators.
 
 The validator should:
 
@@ -50,6 +50,8 @@ export class ProjectService {
 ## 3. Implement adapters
 
 Implement domain-owned repository contracts under `src/infrastructure`. A persisted feature needs both memory and PostgreSQL adapters when it participates in the configured provider choice. Register TypeORM entities and migrations in the existing data source. User persistence currently selects interchangeable memory and TypeORM/PostgreSQL implementations of `IUserRepository`; a future JSON-file adapter belongs here and should require only infrastructure, configuration, and composition changes.
+
+Cross-cutting storage behavior belongs in infrastructure decorators or adapters behind inward contracts. The User cache decorator implements `IUserRepository`, performs cache-aside reads, invalidates after successful writes, and is applied only in `src/server.ts`. Application services must not import Redis. Choose failure policy explicitly: derived caches may fail open, while authoritative session or token-rotation state must fail closed.
 
 If multiple repositories share one provider lifecycle, evolve the persistence selector into an explicit bundle and return every repository from each enum-keyed provider factory.
 
@@ -92,13 +94,14 @@ export class ProjectRoutes extends BaseRoutes<ProjectController> {
 
 ## 6. Wire dependencies
 
-Add the service to `RouteDependencies`, construct its controller and routes in `routes.factory.ts`, and inject the fully constructed service from `src/server.ts`. Keep `src/app.ts` limited to global HTTP composition. Shared inward contracts such as the logger port belong under `src/application/shared`; concrete adapters such as Pino remain under `src/infrastructure`.
+Add the service to `RouteDependencies`, construct its controller and routes in `routes.factory.ts`, and inject the fully constructed service from `src/server.ts`. Keep `src/app.ts` limited to global HTTP composition. Shared inward contracts belong under domain/application; concrete adapters such as Redis, Pino, JWT, and bcrypt remain under `src/infrastructure`. When adding refresh-like state transitions, expose one atomic adapter operation rather than composing an unsafe read followed by a write in the application service.
 
 ## 7. Test and document
 
 - Service tests: validation, normalization, repository calls, and no write after invalid input.
 - HTTP tests: authentication, status/body contracts, error propagation, and malformed input.
 - Adapter tests: persistence mapping and provider-specific failures.
+- Cache/session tests: hit/miss behavior, invalidation, failure policy, atomic rotation/reuse, and revocation through fake ports without live Redis.
 - OpenAPI: paths, request DTOs, response DTOs, errors, and security.
 
 Update `README.md` for public behavior and this architecture guide when boundaries or wiring change.

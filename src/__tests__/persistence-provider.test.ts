@@ -1,11 +1,11 @@
-import {DataSource, Repository} from 'typeorm';
-import {parseConfig, PersistenceProvider} from '../config';
-import {createLogger} from '../infrastructure/logging/logger.service';
-import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
-import {TypeOrmUserRepository} from '../infrastructure/persistence/postgres/typeorm-user.repository';
-import {UserEntity} from '../infrastructure/persistence/postgres/user.entity';
-import {selectUserPersistence} from '../infrastructure/persistence/select-user-persistence';
-import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
+import { DataSource, Repository } from 'typeorm';
+import { parseConfig, PersistenceProvider } from '../config';
+import { createLogger } from '../infrastructure/logging/logger.service';
+import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
+import { TypeOrmUserRepository } from '../infrastructure/persistence/postgres/typeorm-user.repository';
+import { UserEntity } from '../infrastructure/persistence/postgres/user.entity';
+import { selectPersistence } from '../infrastructure/persistence/select-user-persistence';
+import { withFibonacciRetry } from '../infrastructure/startup/retry.strategy';
 
 describe('user persistence provider selection', () => {
   test('defaults to PostgreSQL without silently falling back', async () => {
@@ -14,7 +14,7 @@ describe('user persistence provider selection', () => {
       throw new Error('postgres unavailable');
     });
 
-    await expect(selectUserPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory)).rejects.toThrow('postgres unavailable');
+    await expect(selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory)).rejects.toThrow('postgres unavailable');
     expect(config.persistence.provider).toBe(PersistenceProvider.POSTGRES);
     expect(dataSourceFactory).toHaveBeenCalledTimes(1);
   });
@@ -23,7 +23,7 @@ describe('user persistence provider selection', () => {
     const config = parseConfig({NODE_ENV: 'test', LOG_LEVEL: 'silent', PERSISTENCE_PROVIDER: PersistenceProvider.MEMORY});
     const dataSourceFactory = jest.fn();
 
-    const persistence = await selectUserPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
+    const persistence = await selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
 
     expect(persistence.repository).toBeInstanceOf(InMemoryUserRepository);
     expect(persistence.dataSource).toBeUndefined();
@@ -39,7 +39,7 @@ describe('user persistence provider selection', () => {
     const dataSourceFactory = jest.fn().mockReturnValue(dataSource);
     const config = parseConfig({NODE_ENV: 'test', LOG_LEVEL: 'silent', PERSISTENCE_PROVIDER: PersistenceProvider.POSTGRES});
 
-    const persistence = await selectUserPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
+    const persistence = await selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
 
     expect(dataSourceFactory).toHaveBeenCalledWith(config);
     expect(dataSource.initialize).toHaveBeenCalledTimes(1);
@@ -60,7 +60,7 @@ describe('user persistence provider selection', () => {
     } as unknown as DataSource;
     const config = parseConfig({NODE_ENV: 'test', LOG_LEVEL: 'silent', PERSISTENCE_PROVIDER: PersistenceProvider.POSTGRES});
 
-    await expect(selectUserPersistence(config, withFibonacciRetry, createLogger(config), () => dataSource)).rejects.toBe(failure);
+    await expect(selectPersistence(config, withFibonacciRetry, createLogger(config), () => dataSource)).rejects.toBe(failure);
     expect(dataSource.destroy).toHaveBeenCalledTimes(1);
   });
 });

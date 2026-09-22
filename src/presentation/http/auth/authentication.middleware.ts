@@ -4,6 +4,7 @@ import {AppError} from '../errors/app-error';
 
 export interface AuthenticatedPrincipal {
   readonly subject: string;
+  readonly sessionId: string;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -27,7 +28,8 @@ export class AuthenticationMiddleware {
     }
 
     try {
-      (request as AuthenticatedRequest).auth = {subject: this.tokens.verify(match[1]).sub};
+      const payload = this.tokens.verify(match[1]);
+      (request as AuthenticatedRequest).auth = {subject: payload.sub, sessionId: payload.sid};
       next();
     } catch {
       next(new AppError(401, 'INVALID_ACCESS_TOKEN', 'The access token is invalid or expired'));

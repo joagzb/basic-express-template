@@ -1,4 +1,4 @@
-import {PasswordService, TokenService} from '../infrastructure/security/security.service';
+import {PasswordService, RefreshTokenService, TokenService} from '../infrastructure/security/security.service';
 
 describe('security service foundations', () => {
   test('hashes and compares passwords without exposing the original value', async () => {
@@ -11,7 +11,18 @@ describe('security service foundations', () => {
 
   test('signs and verifies JWT subjects', () => {
     const service = new TokenService('test-secret-at-least-thirty-two-characters', 60);
-    const token = service.sign('user-id');
-    expect(service.verify(token).sub).toBe('user-id');
+    const token = service.sign('user-id', 'session-id');
+    expect(service.verify(token)).toMatchObject({sub: 'user-id', sid: 'session-id', tokenUse: 'access'});
+  });
+
+  test('issues opaque random refresh tokens and stable digests without storing plaintext', () => {
+    const service = new RefreshTokenService();
+    const first = service.issue();
+    const rotated = service.issue(first.sessionId);
+
+    expect(first.value).not.toBe(rotated.value);
+    expect(first.digest).toBe(service.digest(first.value));
+    expect(first.digest).not.toContain(first.value);
+    expect(service.sessionId(first.value)).toBe(first.sessionId);
   });
 });

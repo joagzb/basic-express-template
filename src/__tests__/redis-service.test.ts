@@ -9,6 +9,7 @@ const createClient = (): jest.Mocked<RedisCommandClient> =>
     exists: jest.fn().mockResolvedValue(0),
     expire: jest.fn().mockResolvedValue(false),
     ttl: jest.fn().mockResolvedValue(-2),
+    eval: jest.fn().mockResolvedValue(['missing']),
   }) as jest.Mocked<RedisCommandClient>;
 
 describe('RedisService', () => {
@@ -46,6 +47,22 @@ describe('RedisService', () => {
     await expect(redis.exists('user:1')).resolves.toBe(true);
     await expect(redis.expire('user:1', 60)).resolves.toBe(true);
     await expect(redis.ttl('user:1')).resolves.toBe(45);
+  });
+
+  test('uses one Lua operation for digest comparison, replacement, and reuse revocation', async () => {
+    const client = createClient();
+    client.eval.mockResolvedValueOnce(['updated', 'user-id']).mockResolvedValueOnce(['mismatch']);
+    const redis = new RedisService(client);
+
+    await expect(redis.compareDigestAndReplace('auth:sessions:1', 'digest-1', {refreshTokenDigest: 'digest-2'}, 60)).resolves.toEqual({
+      status: 'updated',
+      userId: 'user-id',
+    });
+    await expect(redis.compareDigestAndReplace('auth:sessions:1', 'digest-1', {refreshTokenDigest: 'digest-2'}, 60)).resolves.toEqual({status: 'mismatch'});
+
+    expect(client.eval).toHaveBeenCalledTimes(2);
+    expect(client.get).not.toHaveBeenCalled();
+    expect(client.set).not.toHaveBeenCalled();
   });
 
   test('reports disabled and disconnected clients instead of hiding unavailable Redis', async () => {

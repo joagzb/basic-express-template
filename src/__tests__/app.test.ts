@@ -1,28 +1,72 @@
-import {Router} from 'express';
+import { Router } from 'express';
 import request from 'supertest';
-import {createApp} from '../app';
-import {AuthService} from '../application/auth/auth.service';
-import {HealthService} from '../application/health/health.service';
-import {UserService} from '../application/users/user.service';
-import {testConfig} from '../config/test-config';
-import {createLogger} from '../infrastructure/logging/logger.service';
-import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
-import {PasswordService, TokenService} from '../infrastructure/security/security.service';
-import {RouteDefinition} from '../presentation/http/base/base.routes';
-import {createRoutes} from '../presentation/http/base/routes.factory';
-import {AppError} from '../presentation/http/errors/app-error';
-import {createOpenApiDocument} from '../presentation/http/openapi';
+import { createApp } from '../app';
+import { AuthService } from '../application/auth/auth.service';
+import { HealthService } from '../application/health/health.service';
+import { UserService } from '../application/users/user.service';
+import { testConfig } from '../config/test-config';
+import { AuthSession, AuthSessionRotation, IAuthSessionRepository, SessionRotationResult } from '../domain/auth/auth';
+import { RedisSessionRepository } from '../infrastructure/auth/redis-session.store';
+import { RedisService } from '../infrastructure/cache/redis.service';
+import { createLogger } from '../infrastructure/logging/logger.service';
+import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
+import { PasswordService, RefreshTokenService, TokenService } from '../infrastructure/security/security.service';
+import { RouteDefinition } from '../presentation/http/base/base.routes';
+import { createRoutes } from '../presentation/http/base/routes.factory';
+import { AppError } from '../presentation/http/errors/app-error';
+import { createOpenApiDocument } from '../presentation/http/openapi';
+
+class InMemoryAuthSessionStore implements IAuthSessionRepository {
+  private readonly sessions = new Map<string, AuthSession>();
+
+  public assertAvailable(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  public async create(session: AuthSession, _ttlSeconds: number): Promise<void> {
+    this.sessions.set(session.id, session);
+  }
+
+  public async rotate(sessionId: string, expectedDigest: string, replacement: AuthSessionRotation, _ttlSeconds: number): Promise<SessionRotationResult> {
+    const current = this.sessions.get(sessionId);
+    if (!current) {
+      return {status: 'missing'};
+    }
+    if (current.refreshTokenDigest !== expectedDigest) {
+      this.sessions.delete(sessionId);
+      return {status: 'reused'};
+    }
+    this.sessions.set(sessionId, {...current, ...replacement});
+    return {status: 'rotated', userId: current.userId};
+  }
+
+  public async revoke(sessionId: string): Promise<void> {
+    this.sessions.delete(sessionId);
+  }
+}
 
 const tokenService = new TokenService(testConfig.security.jwtSecret, testConfig.security.jwtExpiresInSeconds);
 
-const createTestApp = (repository = new InMemoryUserRepository(), userService = new UserService(repository), additionalRoutes: RouteDefinition[] = []) =>
+const createTestApp = (
+  repository = new InMemoryUserRepository(),
+  userService = new UserService(repository),
+  additionalRoutes: RouteDefinition[] = [],
+  sessions: IAuthSessionRepository = new InMemoryAuthSessionStore(),
+) =>
   createApp({
     config: testConfig,
     logger: createLogger(testConfig),
     routes: [
       ...createRoutes({
         userService,
-        authService: new AuthService(repository, new PasswordService(testConfig.security.bcryptRounds), tokenService),
+        authService: new AuthService(
+          repository,
+          new PasswordService(testConfig.security.bcryptRounds),
+          tokenService,
+          new RefreshTokenService(),
+          sessions,
+          testConfig.security.refreshTokenExpiresInSeconds,
+        ),
         healthService: new HealthService(),
         accessTokenService: tokenService,
       }),
@@ -58,11 +102,41 @@ describe('HTTP application', () => {
     const app = createTestApp();
     const registration = await register(app);
     expect(registration.status).toBe(201);
-    expect(registration.body).toEqual({accessToken: expect.any(String), tokenType: 'Bearer'});
+    expect(registration.body).toEqual({accessToken: expect.any(String), refreshToken: expect.any(String), tokenType: 'Bearer'});
 
     const login = await request(app).post('/api/auth/login').send({email: 'ADA@example.com', password: 'correct-password'}).expect(200);
-    expect(login.body).toEqual({accessToken: expect.any(String), tokenType: 'Bearer'});
+    expect(login.body).toEqual({accessToken: expect.any(String), refreshToken: expect.any(String), tokenType: 'Bearer'});
     await request(app).get('/api/users').set('Authorization', `Bearer ${login.body.accessToken}`).expect(200);
+  });
+
+  test('rotates refresh tokens and logs out the current session', async () => {
+    const app = createTestApp();
+    const registration = await register(app);
+
+    const refresh = await request(app).post('/api/auth/refresh').send({refreshToken: registration.body.refreshToken}).expect(200);
+    expect(refresh.body).toEqual({accessToken: expect.any(String), refreshToken: expect.any(String), tokenType: 'Bearer'});
+    expect(refresh.body.refreshToken).not.toBe(registration.body.refreshToken);
+
+    await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${refresh.body.accessToken}`).expect(204);
+    expect((await request(app).post('/api/auth/refresh').send({refreshToken: refresh.body.refreshToken}).expect(401)).body.error.code).toBe('INVALID_REFRESH_TOKEN');
+
+    await request(app).get('/api/users').set('Authorization', `Bearer ${refresh.body.accessToken}`).expect(200);
+  });
+
+  test('validates refresh DTOs and requires access authentication for logout', async () => {
+    const app = createTestApp();
+    expect((await request(app).post('/api/auth/refresh').send({refreshToken: '', unexpected: true}).expect(400)).body.error.code).toBe('VALIDATION_ERROR');
+    expect((await request(app).post('/api/auth/logout').expect(401)).body.error.code).toBe('AUTHENTICATION_REQUIRED');
+  });
+
+  test('returns 503 without creating credentials when Redis sessions are disabled', async () => {
+    const repository = new InMemoryUserRepository();
+    const app = createTestApp(repository, new UserService(repository), [], new RedisSessionRepository(new RedisService()));
+
+    const response = await register(app);
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe('AUTH_SESSIONS_UNAVAILABLE');
+    await expect(repository.findAll()).resolves.toEqual([]);
   });
 
   test('rejects duplicate registration and invalid login credentials', async () => {
@@ -87,7 +161,7 @@ describe('HTTP application', () => {
     });
 
     const boundary = await request(app).post('/api/auth/login').send({email: 'ada@example.com', password: '123456'}).expect(200);
-    expect(boundary.body).toEqual({accessToken: expect.any(String), tokenType: 'Bearer'});
+    expect(boundary.body).toEqual({accessToken: expect.any(String), refreshToken: expect.any(String), tokenType: 'Bearer'});
   });
 
   test('returns one success and one conflict for concurrent duplicate registration', async () => {
@@ -183,7 +257,7 @@ describe('HTTP application', () => {
   });
 
   test('rejects expired access tokens', async () => {
-    const expiredToken = new TokenService(testConfig.security.jwtSecret, -1).sign('expired-user');
+    const expiredToken = new TokenService(testConfig.security.jwtSecret, -1).sign('expired-user', 'expired-session');
     const response = await request(createTestApp()).get('/api/users').set('Authorization', `Bearer ${expiredToken}`).expect(401);
     expect(response.body.error.code).toBe('INVALID_ACCESS_TOKEN');
   });
@@ -226,6 +300,8 @@ describe('HTTP application', () => {
     const document = createOpenApiDocument(testConfig);
     expect(document.paths).toHaveProperty('/auth/register.post');
     expect(document.paths).toHaveProperty('/auth/login.post');
+    expect(document.paths).toHaveProperty('/auth/refresh.post');
+    expect(document.paths).toHaveProperty('/auth/logout.post');
     expect(document.components.schemas.LoginRequestDto.properties.password.minLength).toBe(6);
     expect(document.paths['/users'].post.requestBody.content['application/json'].example).toEqual({
       name: 'Ada',

@@ -11,6 +11,8 @@ describe('configuration boundaries', () => {
     expect(config.redis.url).toBe('redis://test-redis:6379');
     expect(config.postgres.connectTimeoutMs).toBe(3000);
     expect(config.redis.connectTimeoutMs).toBe(3000);
+    expect(config.redis.userCacheTtlSeconds).toBe(60);
+    expect(config.security.refreshTokenExpiresInSeconds).toBe(2592000);
   });
 
   test('selects external providers explicitly', () => {
@@ -34,5 +36,7 @@ describe('configuration boundaries', () => {
 
   test('rejects invalid ports', () => {
     expect(() => parseConfig({PORT: '70000'})).toThrow(EnvironmentValidationError);
+    expect(() => parseConfig({USER_CACHE_TTL_SECONDS: '0'})).toThrow(EnvironmentValidationError);
+    expect(() => parseConfig({REFRESH_TOKEN_EXPIRES_IN_SECONDS: '0'})).toThrow(EnvironmentValidationError);
   });
 });

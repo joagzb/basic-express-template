@@ -15,6 +15,7 @@ export const createAppConfig = (environment: ParsedEnvironment): RuntimeAppConfi
   security: {
     jwtSecret: environment.JWT_SECRET,
     jwtExpiresInSeconds: environment.JWT_EXPIRES_IN_SECONDS,
+    refreshTokenExpiresInSeconds: environment.REFRESH_TOKEN_EXPIRES_IN_SECONDS,
     bcryptRounds: environment.BCRYPT_ROUNDS,
   },
 });

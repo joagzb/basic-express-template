@@ -40,25 +40,26 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
       '/auth/login': {
         post: {
           summary: 'Sign in',
-          description: 'Verifies a registered user credential and returns a JWT access token.',
+          description: 'Verifies a registered user credential and returns a JWT access token plus an opaque rotating refresh token.',
           requestBody: {
             required: true,
             content: jsonContent({$ref: '#/components/schemas/LoginRequestDto'}, {email: 'ada@example.com', password: 'correct-password'}),
           },
           responses: {
             '200': {
-              description: 'JWT access token',
+              description: 'Access and refresh tokens',
               content: jsonContent({$ref: '#/components/schemas/LoginResponseDto'}),
             },
             '400': errorResponse,
             '401': {description: 'Credentials are invalid', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+            '503': {description: 'Session storage is unavailable (AUTH_SESSIONS_UNAVAILABLE)', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
           },
         },
       },
       '/auth/register': {
         post: {
           summary: 'Register an account',
-          description: 'Creates a user credential and returns a JWT access token.',
+          description: 'Creates a user credential and returns access and refresh tokens.',
           requestBody: {
             required: true,
             content: jsonContent(
@@ -67,9 +68,37 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
             ),
           },
           responses: {
-            '201': {description: 'JWT access token', content: jsonContent({$ref: '#/components/schemas/LoginResponseDto'})},
+            '201': {description: 'Access and refresh tokens', content: jsonContent({$ref: '#/components/schemas/LoginResponseDto'})},
             '400': errorResponse,
             '409': {description: 'Email is already registered', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+            '503': {description: 'Session storage is unavailable (AUTH_SESSIONS_UNAVAILABLE)', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+          },
+        },
+      },
+      '/auth/refresh': {
+        post: {
+          summary: 'Rotate a refresh token',
+          description: 'Atomically consumes one refresh token and returns a new access/refresh token pair.',
+          requestBody: {
+            required: true,
+            content: jsonContent({$ref: '#/components/schemas/RefreshRequestDto'}, {refreshToken: '<opaque-refresh-token>'}),
+          },
+          responses: {
+            '200': {description: 'Rotated access and refresh tokens', content: jsonContent({$ref: '#/components/schemas/LoginResponseDto'})},
+            '400': errorResponse,
+            '401': {description: 'Refresh token is invalid, expired, or reused', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+            '503': {description: 'Session storage is unavailable', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+          },
+        },
+      },
+      '/auth/logout': {
+        post: {
+          summary: 'Revoke the current session',
+          security: [{bearerAuth: []}],
+          responses: {
+            '204': {description: 'Current session revoked'},
+            '401': {description: 'Access token is missing or invalid', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
+            '503': {description: 'Session storage is unavailable', content: jsonContent({$ref: '#/components/schemas/ErrorResponseDto'})},
           },
         },
       },
@@ -171,7 +200,6 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
         },
         LoginRequestDto: {
           type: 'object',
-          additionalProperties: false,
           required: ['email', 'password'],
           properties: {
             email: {type: 'string', format: 'email'},
@@ -181,15 +209,21 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
         LoginResponseDto: {
           type: 'object',
           additionalProperties: false,
-          required: ['accessToken', 'tokenType'],
+          required: ['accessToken', 'refreshToken', 'tokenType'],
           properties: {
             accessToken: {type: 'string'},
+            refreshToken: {type: 'string'},
             tokenType: {type: 'string', enum: ['Bearer']},
           },
         },
-        RegisterRequestDto: {
+        RefreshRequestDto: {
           type: 'object',
           additionalProperties: false,
+          required: ['refreshToken'],
+          properties: {refreshToken: {type: 'string', minLength: 1}},
+        },
+        RegisterRequestDto: {
+          type: 'object',
           required: ['name', 'surname', 'dateOfBirth', 'email', 'password'],
           properties: {
             name: {type: 'string', minLength: 1},
@@ -201,7 +235,6 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
         },
         CreateUserRequestDto: {
           type: 'object',
-          additionalProperties: false,
           required: ['name', 'surname', 'dateOfBirth'],
           properties: {
             name: {type: 'string', minLength: 1},
@@ -211,7 +244,6 @@ export const createOpenApiDocument = (config: RuntimeAppConfig) =>
         },
         UpdateUserRequestDto: {
           type: 'object',
-          additionalProperties: false,
           minProperties: 1,
           properties: {
             name: {type: 'string', minLength: 1},

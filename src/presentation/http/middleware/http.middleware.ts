@@ -1,5 +1,6 @@
 import {ErrorRequestHandler, RequestHandler} from 'express';
 import {ValidationError} from '../../../application/shared/validators/validation';
+import {SessionStoreUnavailableError} from '../../../domain/auth/auth';
 import {ILoggerService} from '../../../infrastructure/logging/logger.interface';
 import {AppError} from '../errors/app-error';
 
@@ -44,6 +45,11 @@ export const createErrorHandler =
 
     if (error instanceof ValidationError) {
       res.status(400).json(buildErrorBody('VALIDATION_ERROR', error.message, {issues: error.issues}));
+      return;
+    }
+
+    if (error instanceof SessionStoreUnavailableError) {
+      res.status(503).json(buildErrorBody('AUTH_SESSIONS_UNAVAILABLE', 'Authentication sessions are temporarily unavailable'));
       return;
     }
 

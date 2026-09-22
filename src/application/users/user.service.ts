@@ -7,7 +7,7 @@ import {UserValidator} from './user.validator';
 export class UserService {
   private readonly validator: UserValidator;
 
-  public constructor(private readonly users: IUserRepository) {
+  public constructor(private readonly usersRepository: IUserRepository) {
     this.validator = new UserValidator();
   }
 
@@ -17,15 +17,15 @@ export class UserService {
       throw new ValidationError(result.issues);
     }
 
-    return this.users.create(result.value);
+    return this.usersRepository.create(result.value);
   }
 
   public async findAll(): Promise<User[]> {
-    return this.users.findAll();
+    return this.usersRepository.findAll();
   }
 
   public async findById(id: string): Promise<User | null> {
-    return this.users.findById(id);
+    return this.usersRepository.findById(id);
   }
 
   public async update(idInput: string, userInput: UpdateUserDto): Promise<User | null> {
@@ -34,10 +34,10 @@ export class UserService {
       throw new ValidationError(user.issues);
     }
 
-    return this.users.update(idInput, user.value);
+    return this.usersRepository.update(idInput, user.value);
   }
 
   public async delete(id: string): Promise<User | null> {
-    return this.users.delete(id);
+    return this.usersRepository.delete(id);
   }
 }

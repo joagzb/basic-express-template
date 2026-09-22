@@ -30,6 +30,7 @@ export class RedisConnection {
       exists: key => client.exists(key),
       expire: (key, ttlSeconds) => client.expire(key, ttlSeconds),
       ttl: key => client.ttl(key),
+      eval: (script, options) => client.eval(script, options),
     };
     this.service = new RedisService(commands);
   }

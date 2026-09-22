@@ -1,6 +1,7 @@
 import {NextFunction, Request, Response} from 'express';
 import {AuthService} from '../../../application/auth/auth.service';
 import {AppError} from '../errors/app-error';
+import {AuthenticatedRequest} from './authentication.middleware';
 
 export class AuthController {
   public constructor(private readonly auth: AuthService) {}
@@ -24,6 +25,27 @@ export class AuthController {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
       }
       response.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public readonly refresh = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await this.auth.refresh(request.body);
+      if (!result) {
+        throw new AppError(401, 'INVALID_REFRESH_TOKEN', 'The refresh token is invalid, expired, or has already been used');
+      }
+      response.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public readonly logout = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.auth.logout((request as AuthenticatedRequest).auth.sessionId);
+      response.status(204).send();
     } catch (error) {
       next(error);
     }

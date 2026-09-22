@@ -11,4 +11,10 @@ export interface RedisOperations {
   exists(key: string): Promise<boolean>;
   expire(key: string, ttlSeconds: number): Promise<boolean>;
   ttl(key: string): Promise<number>;
+  compareDigestAndReplace(
+    key: string,
+    expectedDigest: string,
+    value: KeyValue,
+    ttlSeconds: number,
+  ): Promise<{readonly status: 'updated'; readonly userId: string} | {readonly status: 'missing' | 'mismatch'}>;
 }

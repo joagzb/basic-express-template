@@ -8,6 +8,7 @@ export interface RedisCommandClient {
   exists(key: string): Promise<number>;
   expire(key: string, ttlSeconds: number): Promise<boolean | number>;
   ttl(key: string): Promise<number>;
+  eval(script: string, options: {keys: string[]; arguments: string[]}): Promise<unknown>;
 }
 
 export class RedisUnavailableError extends Error {
@@ -87,6 +88,30 @@ export class RedisService implements RedisOperations {
     return this.readyClient().ttl(key);
   }
 
+  public async compareDigestAndReplace(
+    key: string,
+    expectedDigest: string,
+    value: KeyValue,
+    ttlSeconds: number,
+  ): Promise<{readonly status: 'updated'; readonly userId: string} | {readonly status: 'missing' | 'mismatch'}> {
+    this.assertKey(key);
+    this.assertTtl(ttlSeconds);
+    const result = await this.readyClient().eval(COMPARE_DIGEST_AND_REPLACE_SCRIPT, {
+      keys: [key],
+      arguments: [expectedDigest, JSON.stringify(value), String(ttlSeconds)],
+    });
+    if (!Array.isArray(result) || typeof result[0] !== 'string') {
+      throw new RedisSerializationError(key);
+    }
+    if (result[0] === 'updated' && typeof result[1] === 'string') {
+      return {status: 'updated', userId: result[1]};
+    }
+    if (result[0] === 'missing' || result[0] === 'mismatch') {
+      return {status: result[0]};
+    }
+    throw new RedisSerializationError(key);
+  }
+
   private readyClient(): RedisCommandClient {
     if (!this.client) {
       throw new RedisUnavailableError(this.unavailableReason);
@@ -109,3 +134,21 @@ export class RedisService implements RedisOperations {
     }
   }
 }
+
+const COMPARE_DIGEST_AND_REPLACE_SCRIPT = `
+local current = redis.call('GET', KEYS[1])
+if not current then
+  return {'missing'}
+end
+local decoded = cjson.decode(current)
+if decoded.refreshTokenDigest ~= ARGV[1] then
+  redis.call('DEL', KEYS[1])
+  return {'mismatch'}
+end
+local replacement = cjson.decode(ARGV[2])
+replacement.id = decoded.id
+replacement.userId = decoded.userId
+replacement.createdAt = decoded.createdAt
+redis.call('SET', KEYS[1], cjson.encode(replacement), 'EX', ARGV[3])
+return {'updated', decoded.userId}
+`;

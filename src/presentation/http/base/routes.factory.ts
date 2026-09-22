@@ -23,7 +23,7 @@ export const createRoutes = (deps: RouteDependencies): RouteDefinition[] => {
 
   return [
     new HealthRoutes(new HealthController(deps.healthService)).definition,
-    new AuthRoutes(new AuthController(deps.authService)).definition,
+    new AuthRoutes(new AuthController(deps.authService), authMiddleware).definition,
     new UserRoutes(new UserController(deps.userService), authMiddleware).definition,
   ];
 };

@@ -1,6 +1,6 @@
 import {ValidationIssue, ValidationResult} from 'application/shared/validators/validation.interface';
 import {CommonValidator} from '../shared/validators/common.validator';
-import {LoginDto, RegisterDto} from './auth.dto';
+import {LoginDto, RefreshDto, RegisterDto} from './auth.dto';
 
 export class AuthValidator {
   private readonly commonValidator = new CommonValidator();
@@ -11,7 +11,6 @@ export class AuthValidator {
     if (!credentials || typeof credentials !== 'object' || Array.isArray(credentials)) {
       return {valid: false, issues: [{code: 'invalid_type', message: 'Expected object', path: 'body'}]};
     }
-
     const email = typeof credentials.email === 'string' ? credentials.email.trim().toLowerCase() : undefined;
     if (credentials.email === undefined) {
       issues.push({code: 'invalid_type', message: 'Required', path: 'body.email'});
@@ -35,13 +34,35 @@ export class AuthValidator {
     return issues.length > 0 ? {valid: false, issues} : {valid: true, value: {email: email!, password: password!}};
   }
 
+  public validateRefresh(input: RefreshDto): ValidationResult<RefreshDto> {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      return {valid: false, issues: [{code: 'invalid_type', message: 'Expected object', path: 'body'}]};
+    }
+
+    const keys = Object.keys(input);
+    if (keys.some(key => key !== 'refreshToken')) {
+      return {valid: false, issues: [{code: 'unrecognized_key', message: 'Unexpected property', path: 'body'}]};
+    }
+
+    if (input.refreshToken === undefined) {
+      return {valid: false, issues: [{code: 'invalid_type', message: 'Required', path: 'body.refreshToken'}]};
+    }
+    if (typeof input.refreshToken !== 'string') {
+      return {valid: false, issues: [{code: 'invalid_type', message: 'Expected string', path: 'body.refreshToken'}]};
+    }
+    if (input.refreshToken.length === 0) {
+      return {valid: false, issues: [{code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.refreshToken'}]};
+    }
+
+    return {valid: true, value: {refreshToken: input.refreshToken}};
+  }
+
   public validateRegistration(registration: RegisterDto): ValidationResult<RegisterDto> {
     const issues: ValidationIssue[] = [];
 
     if (!registration || typeof registration !== 'object' || Array.isArray(registration)) {
       return {valid: false, issues: [{code: 'invalid_type', message: 'Expected object', path: 'body'}]};
     }
-
     const name = typeof registration.name === 'string' ? registration.name.trim() : undefined;
     if (registration.name === undefined) {
       issues.push({code: 'invalid_type', message: 'Required', path: 'body.name'});
