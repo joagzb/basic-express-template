@@ -1,8 +1,8 @@
-import { IAuthSessionRepository, IPasswordHasher, IPasswordVerifier, IRefreshTokenService, ITokenService } from '../../domain/auth/auth';
-import { IUserRepository } from '../../domain/users/user.repository';
-import { ValidationError } from '../shared/validators/validation';
-import { AuthResultDto, LoginDto, RefreshDto, RegisterDto } from './auth.dto';
-import { AuthValidator } from './auth.validator';
+import {IAuthRegistrationRepository, IAuthSessionRepository, IPasswordHasher, IPasswordVerifier, IRefreshTokenService, ITokenService, RefreshToken} from '../../domain/auth/auth';
+import {IUserRepository} from '../../domain/users/user.repository';
+import {ValidationError} from '../shared/validators/validation';
+import {AuthResultDto, LoginDto, RefreshDto, RegisterDto} from './auth.dto';
+import {AuthValidator} from './auth.validator';
 
 export class AuthService {
   private readonly validator = new AuthValidator();
@@ -13,6 +13,7 @@ export class AuthService {
     private readonly tokens: ITokenService,
     private readonly refreshTokens: IRefreshTokenService,
     private readonly sessionsRepository: IAuthSessionRepository,
+    private readonly registrationsRepository: IAuthRegistrationRepository,
     private readonly refreshTokenTtlSeconds: number,
   ) {}
 
@@ -38,21 +39,30 @@ export class AuthService {
     }
 
     const registration = result.value;
-    await this.sessionsRepository.assertAvailable();
-
-    const credential = await this.usersRepository.createCredential({
-      name: registration.name,
-      surname: registration.surname,
-      dateOfBirth: registration.dateOfBirth,
-      email: registration.email,
-      passwordHash: await this.passwords.hash(registration.password),
-    });
+    const refreshToken = this.refreshTokens.issue();
+    const now = new Date();
+    const credential = await this.registrationsRepository.create(
+      {
+        name: registration.name,
+        surname: registration.surname,
+        dateOfBirth: registration.dateOfBirth,
+        email: registration.email,
+        passwordHash: await this.passwords.hash(registration.password),
+      },
+      {
+        id: refreshToken.sessionId,
+        refreshTokenDigest: refreshToken.digest,
+        createdAt: now.toISOString(),
+        expiresAt: this.refreshTokenExpiresAt(now),
+      },
+      this.refreshTokenTtlSeconds,
+    );
 
     if (!credential) {
       return null;
     }
 
-    return this.createSession(credential.user.id);
+    return this.createAuthResult(credential.user.id, refreshToken);
   }
 
   public async refresh(input: RefreshDto): Promise<AuthResultDto | null> {
@@ -71,19 +81,15 @@ export class AuthService {
     const replacement = {
       refreshTokenDigest: replacementToken.digest,
       rotatedAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + this.refreshTokenTtlSeconds * 1000).toISOString(),
+      expiresAt: this.refreshTokenExpiresAt(now),
     };
-    
+
     const rotation = await this.sessionsRepository.rotate(sessionId, this.refreshTokens.digest(result.value.refreshToken), replacement, this.refreshTokenTtlSeconds);
     if (rotation.status !== 'rotated') {
       return null;
     }
 
-    return {
-      accessToken: this.tokens.sign(rotation.userId, sessionId),
-      refreshToken: replacementToken.value,
-      tokenType: 'Bearer',
-    };
+    return this.createAuthResult(rotation.userId, replacementToken);
   }
 
   public async logout(sessionId: string): Promise<void> {
@@ -99,11 +105,19 @@ export class AuthService {
         userId,
         refreshTokenDigest: refreshToken.digest,
         createdAt: now.toISOString(),
-        expiresAt: new Date(now.getTime() + this.refreshTokenTtlSeconds * 1000).toISOString(),
+        expiresAt: this.refreshTokenExpiresAt(now),
       },
       this.refreshTokenTtlSeconds,
     );
 
+    return this.createAuthResult(userId, refreshToken);
+  }
+
+  private refreshTokenExpiresAt(now: Date): string {
+    return new Date(now.getTime() + this.refreshTokenTtlSeconds * 1000).toISOString();
+  }
+
+  private createAuthResult(userId: string, refreshToken: RefreshToken): AuthResultDto {
     return {
       accessToken: this.tokens.sign(userId, refreshToken.sessionId),
       refreshToken: refreshToken.value,

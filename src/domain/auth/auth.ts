@@ -30,6 +30,12 @@ export interface AuthSession {
   readonly rotatedAt?: string;
 }
 
+export type InitialAuthSession = Omit<AuthSession, 'userId'>;
+
+export interface IAuthRegistrationRepository {
+  create(credential: NewUserCredential, session: InitialAuthSession, ttlSeconds: number): Promise<UserCredential | null>;
+}
+
 export interface AuthSessionRotation {
   readonly refreshTokenDigest: string;
   readonly expiresAt: string;
@@ -59,3 +65,4 @@ export interface IPasswordVerifier {
 export interface IPasswordHasher {
   hash(password: string): Promise<string>;
 }
+import {NewUserCredential, UserCredential} from '../users/user';

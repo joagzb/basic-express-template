@@ -1,7 +1,7 @@
 import {Repository} from 'typeorm';
-import {NewUser, NewUserCredential, User, UserCredential, UserUpdate} from '../../../domain/users/user';
-import {IUserRepository} from '../../../domain/users/user.repository';
-import {UserEntity} from './user.entity';
+import {NewUser, NewUserCredential, User, UserCredential, UserUpdate} from '../../../../domain/users/user';
+import {IUserRepository} from '../../../../domain/users/user.repository';
+import {UserEntity} from '../entities/user.entity';
 
 export class TypeOrmUserRepository implements IUserRepository {
   public constructor(private readonly repository: Repository<UserEntity>) {}

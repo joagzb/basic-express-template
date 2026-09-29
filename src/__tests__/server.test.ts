@@ -6,11 +6,59 @@ import {createApp} from '../app';
 import {testConfig} from '../config/test-config';
 import {RedisConnection} from '../infrastructure/cache/redis.connection';
 import {createLogger} from '../infrastructure/logging/logger.service';
+import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/memory/in-memory-auth-registration.repository';
+import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
+import {InMemoryPersistenceState} from '../infrastructure/persistence/memory/in-memory-persistence.state';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
 import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
 import {bootstrapServer, ServerRuntime} from '../server';
 
+const createMemoryPersistence = (dataSource?: DataSource) => {
+  const state = new InMemoryPersistenceState();
+  return {
+    userRepository: new InMemoryUserRepository(state),
+    authSessionRepository: new InMemoryAuthSessionRepository(state),
+    authRegistrationRepository: new InMemoryAuthRegistrationRepository(state),
+    dataSource,
+  };
+};
+
 describe('Server startup lifecycle', () => {
+  test('connects optional Redis without using it for User or Auth composition', async () => {
+    const config = {...testConfig, redis: {...testConfig.redis, enabled: true}};
+    const httpServer = new EventEmitter() as unknown as HttpServer;
+    Object.assign(httpServer, {close: jest.fn()});
+    const app = {
+      listen: jest.fn((_port: number, _host: string, listening: () => void) => {
+        void Promise.resolve().then(listening);
+        return httpServer;
+      }),
+    } as unknown as Express;
+    const connect = jest.fn().mockResolvedValue(undefined);
+    const redis = {
+      connect,
+      close: jest.fn().mockResolvedValue(undefined),
+      get service(): never {
+        throw new Error('RedisService must not be consumed by User or Auth composition');
+      },
+    } as unknown as RedisConnection;
+    const runtime: ServerRuntime = {
+      loadConfig: () => config,
+      createLogger,
+      selectPersistence: async () => createMemoryPersistence(),
+      createRedisConnection: () => redis,
+      createApp: jest.fn(() => app) as unknown as typeof createApp,
+      retry: withFibonacciRetry,
+    };
+    const processOnce = jest.spyOn(process, 'once').mockReturnValue(process);
+
+    await expect(bootstrapServer(runtime)).resolves.toBe(httpServer);
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(runtime.createApp).toHaveBeenCalledTimes(1);
+    processOnce.mockRestore();
+  });
+
   test('cleans initialized dependencies when the HTTP listener fails', async () => {
     const failure = new Error('address already in use');
     const httpServer = new EventEmitter() as unknown as HttpServer;
@@ -25,7 +73,7 @@ describe('Server startup lifecycle', () => {
     const runtime: ServerRuntime = {
       loadConfig: () => testConfig,
       createLogger,
-      selectUserPersistence: async () => ({repository: new InMemoryUserRepository(), dataSource}),
+      selectPersistence: async () => createMemoryPersistence(dataSource),
       createRedisConnection: jest.fn() as unknown as ServerRuntime['createRedisConnection'],
       createApp: jest.fn(() => app) as unknown as typeof createApp,
       retry: withFibonacciRetry,
@@ -46,7 +94,7 @@ describe('Server startup lifecycle', () => {
     const runtime: ServerRuntime = {
       loadConfig: () => config,
       createLogger,
-      selectUserPersistence: async () => ({repository: new InMemoryUserRepository(), dataSource}),
+      selectPersistence: async () => createMemoryPersistence(dataSource),
       createRedisConnection: () => redis,
       createApp: createHttpApp,
       retry: withFibonacciRetry,

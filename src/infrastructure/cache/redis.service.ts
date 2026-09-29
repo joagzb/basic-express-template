@@ -1,6 +1,6 @@
-import {KeyValue, RedisOperations} from './redis.interface';
+import {IRedisOperations, KeyValue} from './redisOperations.interface';
 
-export interface RedisCommandClient {
+type RedisClient = {
   readonly isReady: boolean;
   set(key: string, value: string, options?: {EX: number}): Promise<unknown>;
   get(key: string): Promise<string | null>;
@@ -8,8 +8,7 @@ export interface RedisCommandClient {
   exists(key: string): Promise<number>;
   expire(key: string, ttlSeconds: number): Promise<boolean | number>;
   ttl(key: string): Promise<number>;
-  eval(script: string, options: {keys: string[]; arguments: string[]}): Promise<unknown>;
-}
+};
 
 export class RedisUnavailableError extends Error {
   public constructor(message: string) {
@@ -25,9 +24,20 @@ export class RedisSerializationError extends Error {
   }
 }
 
-export class RedisService implements RedisOperations {
+/**
+ * Adapts the node-redis client into application-facing `IRedisOperations` with
+ * JSON values, TTL validation, boolean results, and explicit availability
+ * errors.
+ *
+ * Flow: `RedisConnection`-owned node-redis client -> `RedisService` -> future
+ * application consumers.
+ *
+ * Keeping this boundary separate prevents node-redis command and return-value
+ * semantics from leaking to application consumers.
+ */
+export class RedisService implements IRedisOperations {
   public constructor(
-    private readonly client?: RedisCommandClient,
+    private readonly client?: RedisClient,
     private readonly unavailableReason = 'Redis is disabled',
   ) {}
 
@@ -63,10 +73,6 @@ export class RedisService implements RedisOperations {
     }
   }
 
-  public update(key: string, value: KeyValue, ttlSeconds?: number): Promise<void> {
-    return this.set(key, value, ttlSeconds);
-  }
-
   public async delete(key: string): Promise<boolean> {
     this.assertKey(key);
     return (await this.readyClient().del(key)) > 0;
@@ -83,36 +89,13 @@ export class RedisService implements RedisOperations {
     return Boolean(await this.readyClient().expire(key, ttlSeconds));
   }
 
+  /** Returns Redis expiry inspection values: seconds remaining, -1 without expiry, or -2 when missing. */
   public ttl(key: string): Promise<number> {
     this.assertKey(key);
     return this.readyClient().ttl(key);
   }
 
-  public async compareDigestAndReplace(
-    key: string,
-    expectedDigest: string,
-    value: KeyValue,
-    ttlSeconds: number,
-  ): Promise<{readonly status: 'updated'; readonly userId: string} | {readonly status: 'missing' | 'mismatch'}> {
-    this.assertKey(key);
-    this.assertTtl(ttlSeconds);
-    const result = await this.readyClient().eval(COMPARE_DIGEST_AND_REPLACE_SCRIPT, {
-      keys: [key],
-      arguments: [expectedDigest, JSON.stringify(value), String(ttlSeconds)],
-    });
-    if (!Array.isArray(result) || typeof result[0] !== 'string') {
-      throw new RedisSerializationError(key);
-    }
-    if (result[0] === 'updated' && typeof result[1] === 'string') {
-      return {status: 'updated', userId: result[1]};
-    }
-    if (result[0] === 'missing' || result[0] === 'mismatch') {
-      return {status: result[0]};
-    }
-    throw new RedisSerializationError(key);
-  }
-
-  private readyClient(): RedisCommandClient {
+  private readyClient(): RedisClient {
     if (!this.client) {
       throw new RedisUnavailableError(this.unavailableReason);
     }
@@ -134,21 +117,3 @@ export class RedisService implements RedisOperations {
     }
   }
 }
-
-const COMPARE_DIGEST_AND_REPLACE_SCRIPT = `
-local current = redis.call('GET', KEYS[1])
-if not current then
-  return {'missing'}
-end
-local decoded = cjson.decode(current)
-if decoded.refreshTokenDigest ~= ARGV[1] then
-  redis.call('DEL', KEYS[1])
-  return {'mismatch'}
-end
-local replacement = cjson.decode(ARGV[2])
-replacement.id = decoded.id
-replacement.userId = decoded.userId
-replacement.createdAt = decoded.createdAt
-redis.call('SET', KEYS[1], cjson.encode(replacement), 'EX', ARGV[3])
-return {'updated', decoded.userId}
-`;

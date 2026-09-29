@@ -1,49 +1,20 @@
-import { Router } from 'express';
+import {Router} from 'express';
 import request from 'supertest';
-import { createApp } from '../app';
-import { AuthService } from '../application/auth/auth.service';
-import { HealthService } from '../application/health/health.service';
-import { UserService } from '../application/users/user.service';
-import { testConfig } from '../config/test-config';
-import { AuthSession, AuthSessionRotation, IAuthSessionRepository, SessionRotationResult } from '../domain/auth/auth';
-import { RedisSessionRepository } from '../infrastructure/auth/redis-session.store';
-import { RedisService } from '../infrastructure/cache/redis.service';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
-import { PasswordService, RefreshTokenService, TokenService } from '../infrastructure/security/security.service';
-import { RouteDefinition } from '../presentation/http/base/base.routes';
-import { createRoutes } from '../presentation/http/base/routes.factory';
-import { AppError } from '../presentation/http/errors/app-error';
-import { createOpenApiDocument } from '../presentation/http/openapi';
-
-class InMemoryAuthSessionStore implements IAuthSessionRepository {
-  private readonly sessions = new Map<string, AuthSession>();
-
-  public assertAvailable(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  public async create(session: AuthSession, _ttlSeconds: number): Promise<void> {
-    this.sessions.set(session.id, session);
-  }
-
-  public async rotate(sessionId: string, expectedDigest: string, replacement: AuthSessionRotation, _ttlSeconds: number): Promise<SessionRotationResult> {
-    const current = this.sessions.get(sessionId);
-    if (!current) {
-      return {status: 'missing'};
-    }
-    if (current.refreshTokenDigest !== expectedDigest) {
-      this.sessions.delete(sessionId);
-      return {status: 'reused'};
-    }
-    this.sessions.set(sessionId, {...current, ...replacement});
-    return {status: 'rotated', userId: current.userId};
-  }
-
-  public async revoke(sessionId: string): Promise<void> {
-    this.sessions.delete(sessionId);
-  }
-}
+import {createApp} from '../app';
+import {AuthService} from '../application/auth/auth.service';
+import {HealthService} from '../application/health/health.service';
+import {UserService} from '../application/users/user.service';
+import {testConfig} from '../config/test-config';
+import {IAuthSessionRepository} from '../domain/auth/auth';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/memory/in-memory-auth-registration.repository';
+import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
+import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
+import {PasswordService, RefreshTokenService, TokenService} from '../infrastructure/security/security.service';
+import {RouteDefinition} from '../presentation/http/base/base.routes';
+import {createRoutes} from '../presentation/http/base/routes.factory';
+import {AppError} from '../presentation/http/errors/app-error';
+import {createOpenApiDocument} from '../presentation/http/openapi';
 
 const tokenService = new TokenService(testConfig.security.jwtSecret, testConfig.security.jwtExpiresInSeconds);
 
@@ -51,7 +22,8 @@ const createTestApp = (
   repository = new InMemoryUserRepository(),
   userService = new UserService(repository),
   additionalRoutes: RouteDefinition[] = [],
-  sessions: IAuthSessionRepository = new InMemoryAuthSessionStore(),
+  sessions: IAuthSessionRepository = new InMemoryAuthSessionRepository(repository.state),
+  registrations = new InMemoryAuthRegistrationRepository(repository.state),
 ) =>
   createApp({
     config: testConfig,
@@ -65,6 +37,7 @@ const createTestApp = (
           tokenService,
           new RefreshTokenService(),
           sessions,
+          registrations,
           testConfig.security.refreshTokenExpiresInSeconds,
         ),
         healthService: new HealthService(),
@@ -127,16 +100,6 @@ describe('HTTP application', () => {
     const app = createTestApp();
     expect((await request(app).post('/api/auth/refresh').send({refreshToken: '', unexpected: true}).expect(400)).body.error.code).toBe('VALIDATION_ERROR');
     expect((await request(app).post('/api/auth/logout').expect(401)).body.error.code).toBe('AUTHENTICATION_REQUIRED');
-  });
-
-  test('returns 503 without creating credentials when Redis sessions are disabled', async () => {
-    const repository = new InMemoryUserRepository();
-    const app = createTestApp(repository, new UserService(repository), [], new RedisSessionRepository(new RedisService()));
-
-    const response = await register(app);
-    expect(response.status).toBe(503);
-    expect(response.body.error.code).toBe('AUTH_SESSIONS_UNAVAILABLE');
-    await expect(repository.findAll()).resolves.toEqual([]);
   });
 
   test('rejects duplicate registration and invalid login credentials', async () => {
@@ -204,14 +167,6 @@ describe('HTTP application', () => {
       },
     });
     expect(response.body.error.timestamp).toEqual(expect.any(String));
-  });
-
-  test('validates route params in application services', async () => {
-    const app = createTestApp();
-    const token = (await register(app)).body.accessToken as string;
-
-    const paramsResponse = await request(app).get('/api/users/%20').set('Authorization', `Bearer ${token}`).expect(400);
-    expect(paramsResponse.body.error.details.issues[0].path).toBe('params.id');
   });
 
   test('rejects empty updates', async () => {

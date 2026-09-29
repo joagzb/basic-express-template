@@ -7,6 +7,5 @@ export const createRedisConfig = (environment: ParsedEnvironment): AppConfig['re
     enabled: environment.REDIS_ENABLED,
     url: `redis://${credentials}${environment.REDIS_HOST}:${environment.REDIS_PORT}`,
     connectTimeoutMs: environment.REDIS_CONNECT_TIMEOUT_MS,
-    userCacheTtlSeconds: environment.USER_CACHE_TTL_SECONDS,
   };
 };

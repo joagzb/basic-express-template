@@ -1,27 +1,24 @@
-import { Express } from 'express';
-import { Server as HttpServer } from 'node:http';
-import { DataSource } from 'typeorm';
-import { createApp } from './app';
-import { AuthService } from './application/auth/auth.service';
-import { HealthService } from './application/health/health.service';
-import { UserService } from './application/users/user.service';
-import { AppConfig, loadConfig } from './config';
-import { RedisSessionRepository } from './infrastructure/auth/redis-session.store';
-import { RedisConnection } from './infrastructure/cache/redis.connection';
-import { RedisService } from './infrastructure/cache/redis.service';
-import { ILoggerService } from './infrastructure/logging/logger.interface';
-import { createLogger } from './infrastructure/logging/logger.service';
-import { CachedUserRepository } from './infrastructure/persistence/cached-user.repository';
-import { selectPersistence } from './infrastructure/persistence/select-user-persistence';
-import { PasswordService, RefreshTokenService, TokenService } from './infrastructure/security/security.service';
-import { withFibonacciRetry } from './infrastructure/startup/retry.strategy';
-import { createRoutes } from './presentation/http/base/routes.factory';
-import { logStartupBanner } from './startup-banner';
+import {Express} from 'express';
+import {Server as HttpServer} from 'node:http';
+import {DataSource} from 'typeorm';
+import {createApp} from './app';
+import {AuthService} from './application/auth/auth.service';
+import {HealthService} from './application/health/health.service';
+import {UserService} from './application/users/user.service';
+import {AppConfig, loadConfig} from './config';
+import {RedisConnection} from './infrastructure/cache/redis.connection';
+import {ILoggerService} from './infrastructure/logging/logger.interface';
+import {createLogger} from './infrastructure/logging/logger.service';
+import {selectPersistence} from './infrastructure/persistence/select-user-persistence';
+import {PasswordService, RefreshTokenService, TokenService} from './infrastructure/security/security.service';
+import {withFibonacciRetry} from './infrastructure/startup/retry.strategy';
+import {createRoutes} from './presentation/http/base/routes.factory';
+import {logStartupBanner} from './startup-banner';
 
 export interface ServerRuntime {
   readonly loadConfig: typeof loadConfig;
   readonly createLogger: typeof createLogger;
-  readonly selectUserPersistence: typeof selectPersistence;
+  readonly selectPersistence: typeof selectPersistence;
   readonly createRedisConnection: (config: AppConfig, logger: ILoggerService) => RedisConnection;
   readonly createApp: typeof createApp;
   readonly retry: typeof withFibonacciRetry;
@@ -30,7 +27,7 @@ export interface ServerRuntime {
 const defaultRuntime: ServerRuntime = {
   loadConfig,
   createLogger,
-  selectUserPersistence: selectPersistence,
+  selectPersistence,
   createRedisConnection: (config, logger) => new RedisConnection(config, logger),
   createApp,
   retry: withFibonacciRetry,
@@ -43,7 +40,7 @@ export async function bootstrapServer(runtime: ServerRuntime = defaultRuntime): 
   let redis: RedisConnection | undefined;
 
   try {
-    const persistence = await runtime.selectUserPersistence(config, runtime.retry, logger);
+    const persistence = await runtime.selectPersistence(config, runtime.retry, logger);
     dataSource = persistence.dataSource;
 
     if (config.redis.enabled) {
@@ -60,15 +57,22 @@ export async function bootstrapServer(runtime: ServerRuntime = defaultRuntime): 
 
     const passwordsService = new PasswordService(config.security.bcryptRounds);
     const tokensService = new TokenService(config.security.jwtSecret, config.security.jwtExpiresInSeconds);
-    const redisService = redis?.service ?? new RedisService();
     const refreshTokensService = new RefreshTokenService();
-
-    const sessionsRepository = new RedisSessionRepository(redisService);
-    const usersRepository = config.redis.enabled ? new CachedUserRepository(persistence.repository, redisService, logger, config.redis.userCacheTtlSeconds) : persistence.repository;
+    const sessionsRepository = persistence.authSessionRepository;
+    const registrationsRepository = persistence.authRegistrationRepository;
+    const usersRepository = persistence.userRepository;
 
     const routes = createRoutes({
       userService: new UserService(usersRepository),
-      authService: new AuthService(usersRepository, passwordsService, tokensService, refreshTokensService, sessionsRepository, config.security.refreshTokenExpiresInSeconds),
+      authService: new AuthService(
+        usersRepository,
+        passwordsService,
+        tokensService,
+        refreshTokensService,
+        sessionsRepository,
+        registrationsRepository,
+        config.security.refreshTokenExpiresInSeconds,
+      ),
       healthService: new HealthService(),
       accessTokenService: tokensService,
     });

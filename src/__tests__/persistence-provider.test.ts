@@ -1,11 +1,16 @@
-import { DataSource, Repository } from 'typeorm';
-import { parseConfig, PersistenceProvider } from '../config';
-import { createLogger } from '../infrastructure/logging/logger.service';
-import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
-import { TypeOrmUserRepository } from '../infrastructure/persistence/postgres/typeorm-user.repository';
-import { UserEntity } from '../infrastructure/persistence/postgres/user.entity';
-import { selectPersistence } from '../infrastructure/persistence/select-user-persistence';
-import { withFibonacciRetry } from '../infrastructure/startup/retry.strategy';
+import {DataSource, Repository} from 'typeorm';
+import {parseConfig, PersistenceProvider} from '../config';
+import {createLogger} from '../infrastructure/logging/logger.service';
+import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/memory/in-memory-auth-registration.repository';
+import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
+import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
+import {AuthSessionEntity} from '../infrastructure/persistence/postgres/entities/auth-session.entity';
+import {UserEntity} from '../infrastructure/persistence/postgres/entities/user.entity';
+import {TypeOrmAuthRegistrationRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-auth-registration.repository';
+import {TypeOrmAuthSessionRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-auth-session.repository';
+import {TypeOrmUserRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-user.repository';
+import {selectPersistence} from '../infrastructure/persistence/select-user-persistence';
+import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
 
 describe('user persistence provider selection', () => {
   test('defaults to PostgreSQL without silently falling back', async () => {
@@ -25,7 +30,10 @@ describe('user persistence provider selection', () => {
 
     const persistence = await selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
 
-    expect(persistence.repository).toBeInstanceOf(InMemoryUserRepository);
+    expect(persistence.userRepository).toBeInstanceOf(InMemoryUserRepository);
+    expect(persistence.authSessionRepository).toBeInstanceOf(InMemoryAuthSessionRepository);
+    expect(persistence.authRegistrationRepository).toBeInstanceOf(InMemoryAuthRegistrationRepository);
+    expect((persistence.userRepository as InMemoryUserRepository).state).toBe((persistence.authSessionRepository as InMemoryAuthSessionRepository).state);
     expect(persistence.dataSource).toBeUndefined();
     expect(dataSourceFactory).not.toHaveBeenCalled();
   });
@@ -44,8 +52,11 @@ describe('user persistence provider selection', () => {
     expect(dataSourceFactory).toHaveBeenCalledWith(config);
     expect(dataSource.initialize).toHaveBeenCalledTimes(1);
     expect(dataSource.getRepository).toHaveBeenCalledWith(UserEntity);
-    expect(persistence.repository).toBeInstanceOf(TypeOrmUserRepository);
+    expect(persistence.userRepository).toBeInstanceOf(TypeOrmUserRepository);
+    expect(persistence.authSessionRepository).toBeInstanceOf(TypeOrmAuthSessionRepository);
+    expect(persistence.authRegistrationRepository).toBeInstanceOf(TypeOrmAuthRegistrationRepository);
     expect(persistence.dataSource).toBe(dataSource);
+    expect(dataSource.getRepository).not.toHaveBeenCalledWith(AuthSessionEntity);
   });
 
   test('destroys an initialized datasource when repository construction fails', async () => {

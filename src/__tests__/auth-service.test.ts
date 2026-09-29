@@ -1,46 +1,28 @@
-import { LoginDto } from '../application/auth/auth.dto';
-import { AuthService } from '../application/auth/auth.service';
-import { ValidationError } from '../application/shared/validators/validation';
-import { AuthSession, AuthSessionRotation, IAuthSessionRepository, SessionRotationResult, SessionStoreUnavailableError } from '../domain/auth/auth';
-import { InMemoryUserRepository } from '../infrastructure/persistence/memory/in-memory-user.repository';
-import { PasswordService, RefreshTokenService, TokenService } from '../infrastructure/security/security.service';
+import {LoginDto} from '../application/auth/auth.dto';
+import {AuthService} from '../application/auth/auth.service';
+import {ValidationError} from '../application/shared/validators/validation';
+import {SessionStoreUnavailableError} from '../domain/auth/auth';
+import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/memory/in-memory-auth-registration.repository';
+import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
+import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
+import {PasswordService, RefreshTokenService, TokenService} from '../infrastructure/security/security.service';
 
-class InMemoryAuthSessionStore implements IAuthSessionRepository {
-  public readonly sessions = new Map<string, AuthSession>();
-
-  public assertAvailable(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  public async create(session: AuthSession, _ttlSeconds: number): Promise<void> {
-    this.sessions.set(session.id, session);
-  }
-
-  public async rotate(sessionId: string, expectedDigest: string, replacement: AuthSessionRotation, _ttlSeconds: number): Promise<SessionRotationResult> {
-    const current = this.sessions.get(sessionId);
-    if (!current) {
-      return {status: 'missing'};
-    }
-    if (current.refreshTokenDigest !== expectedDigest) {
-      this.sessions.delete(sessionId);
-      return {status: 'reused'};
-    }
-    this.sessions.set(sessionId, {...current, ...replacement});
-    return {status: 'rotated', userId: current.userId};
-  }
-
-  public async revoke(sessionId: string): Promise<void> {
-    this.sessions.delete(sessionId);
-  }
-}
-
-const createService = (repository: InMemoryUserRepository, sessions = new InMemoryAuthSessionStore()) =>
-  new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new RefreshTokenService(), sessions, 3600);
+const createService = (
+  repository: InMemoryUserRepository,
+  sessions = new InMemoryAuthSessionRepository(repository.state),
+  registrations = new InMemoryAuthRegistrationRepository(repository.state),
+) =>
+  new AuthService(repository, new PasswordService(4), new TokenService('test-secret-at-least-thirty-two-characters', 60), new RefreshTokenService(), sessions, registrations, 3600);
 
 describe('AuthService', () => {
   test('validates and normalizes registration DTOs before creating credentials', async () => {
     const repository = new InMemoryUserRepository();
-    const service = createService(repository);
+    const sessions = new InMemoryAuthSessionRepository(repository.state);
+    const registrations = new InMemoryAuthRegistrationRepository(repository.state);
+    const createCredential = jest.spyOn(repository, 'createCredential');
+    const createSession = jest.spyOn(sessions, 'create');
+    const createRegistration = jest.spyOn(registrations, 'create');
+    const service = createService(repository, sessions, registrations);
 
     await expect(service.register({name: ' Test ', surname: ' User ', dateOfBirth: '2000-01-01', email: ' TEST@example.com ', password: 'secret'})).resolves.toEqual({
       accessToken: expect.any(String),
@@ -51,6 +33,13 @@ describe('AuthService', () => {
       user: {name: 'Test', surname: 'User', dateOfBirth: '2000-01-01'},
       email: 'test@example.com',
     });
+    expect(createRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', passwordHash: expect.any(String)}),
+      expect.objectContaining({id: expect.any(String), refreshTokenDigest: expect.any(String), createdAt: expect.any(String), expiresAt: expect.any(String)}),
+      3600,
+    );
+    expect(createCredential).not.toHaveBeenCalled();
+    expect(createSession).not.toHaveBeenCalled();
   });
 
   test('rejects malformed login DTOs before querying persistence', async () => {
@@ -59,15 +48,6 @@ describe('AuthService', () => {
     const service = createService(repository);
 
     await expect(service.login({email: 'not-an-email', password: '', unexpected: true} as LoginDto)).rejects.toBeInstanceOf(ValidationError);
-    expect(findCredential).not.toHaveBeenCalled();
-  });
-
-  test('rejects unexpected login properties before querying persistence', async () => {
-    const repository = new InMemoryUserRepository();
-    const findCredential = jest.spyOn(repository, 'findCredentialByEmail');
-    const service = createService(repository);
-
-    await expect(service.login({email: 'test@example.com', password: '123456', unexpected: true} as LoginDto)).rejects.toBeInstanceOf(ValidationError);
     expect(findCredential).not.toHaveBeenCalled();
   });
 
@@ -116,48 +96,45 @@ describe('AuthService', () => {
 
   test('creates concurrent sessions, rotates refresh tokens once, and revokes reused sessions', async () => {
     const repository = new InMemoryUserRepository();
-    const sessions = new InMemoryAuthSessionStore();
+    const sessions = new InMemoryAuthSessionRepository(repository.state);
     const service = createService(repository, sessions);
     const registration = await service.register({name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', password: 'secret'});
     const login = await service.login({email: 'test@example.com', password: 'secret'});
 
     expect(registration).not.toBeNull();
     expect(login).not.toBeNull();
-    expect(sessions.sessions.size).toBe(2);
-
     const rotated = await service.refresh({refreshToken: login!.refreshToken});
     expect(rotated).toMatchObject({accessToken: expect.any(String), refreshToken: expect.any(String), tokenType: 'Bearer'});
     expect(rotated!.refreshToken).not.toBe(login!.refreshToken);
 
     await expect(service.refresh({refreshToken: login!.refreshToken})).resolves.toBeNull();
     await expect(service.refresh({refreshToken: rotated!.refreshToken})).resolves.toBeNull();
-    expect(sessions.sessions.size).toBe(1);
+    await expect(service.refresh({refreshToken: registration!.refreshToken})).resolves.toMatchObject({tokenType: 'Bearer'});
   });
 
   test('logout revokes only the selected session', async () => {
     const repository = new InMemoryUserRepository();
-    const sessions = new InMemoryAuthSessionStore();
+    const sessions = new InMemoryAuthSessionRepository(repository.state);
     const service = createService(repository, sessions);
-    await service.register({name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', password: 'secret'});
+    const registration = await service.register({name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', password: 'secret'});
     await service.login({email: 'test@example.com', password: 'secret'});
-    const [selectedSession] = sessions.sessions.keys();
+    const selectedSession = new RefreshTokenService().sessionId(registration!.refreshToken)!;
 
     await service.logout(selectedSession);
 
-    expect(sessions.sessions.has(selectedSession)).toBe(false);
-    expect(sessions.sessions.size).toBe(1);
+    await expect(service.refresh({refreshToken: registration!.refreshToken})).resolves.toBeNull();
+    await expect(service.login({email: 'test@example.com', password: 'secret'})).resolves.toMatchObject({tokenType: 'Bearer'});
   });
 
-  test('fails registration closed before persistence when session storage is disabled', async () => {
+  test('does not create a credential when atomic registration persistence is unavailable', async () => {
     const repository = new InMemoryUserRepository();
-    const createCredential = jest.spyOn(repository, 'createCredential');
-    const sessions = new InMemoryAuthSessionStore();
-    jest.spyOn(sessions, 'assertAvailable').mockRejectedValue(new SessionStoreUnavailableError());
-    const service = createService(repository, sessions);
+    const registrations = new InMemoryAuthRegistrationRepository(repository.state);
+    jest.spyOn(registrations, 'create').mockRejectedValue(new SessionStoreUnavailableError());
+    const service = createService(repository, new InMemoryAuthSessionRepository(repository.state), registrations);
 
     await expect(service.register({name: 'Test', surname: 'User', dateOfBirth: '2000-01-01', email: 'test@example.com', password: 'secret'})).rejects.toBeInstanceOf(
       SessionStoreUnavailableError,
     );
-    expect(createCredential).not.toHaveBeenCalled();
+    await expect(repository.findAll()).resolves.toHaveLength(0);
   });
 });

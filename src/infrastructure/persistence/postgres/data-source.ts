@@ -1,8 +1,10 @@
 import {DataSource} from 'typeorm';
 import {AppConfig} from '../../../config';
-import {CreateUsersTable1760000000000} from './migrations/create-users-table';
+import {AuthSessionEntity} from './entities/auth-session.entity';
+import {UserEntity} from './entities/user.entity';
 import {AddUserCredentials1760000001000} from './migrations/add-user-credentials';
-import {UserEntity} from './user.entity';
+import {CreateAuthSessionsTable1760000002000} from './migrations/create-auth-sessions-table';
+import {CreateUsersTable1760000000000} from './migrations/create-users-table';
 
 export const createPostgresDataSource = (config: AppConfig): DataSource =>
   new DataSource({
@@ -14,8 +16,8 @@ export const createPostgresDataSource = (config: AppConfig): DataSource =>
     database: config.postgres.database,
     schema: config.postgres.schema,
     connectTimeoutMS: config.postgres.connectTimeoutMs,
-    entities: [UserEntity],
-    migrations: [CreateUsersTable1760000000000, AddUserCredentials1760000001000],
+    entities: [UserEntity, AuthSessionEntity],
+    migrations: [CreateUsersTable1760000000000, AddUserCredentials1760000001000, CreateAuthSessionsTable1760000002000],
     migrationsRun: true,
     synchronize: false,
     logging: false,

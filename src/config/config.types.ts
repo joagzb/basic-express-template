@@ -21,7 +21,7 @@ export interface AppConfig {
     readonly schema: string;
     readonly connectTimeoutMs: number;
   };
-  readonly redis: {readonly enabled: boolean; readonly url: string; readonly connectTimeoutMs: number; readonly userCacheTtlSeconds: number};
+  readonly redis: {readonly enabled: boolean; readonly url: string; readonly connectTimeoutMs: number};
   readonly security: {readonly jwtSecret: string; readonly jwtExpiresInSeconds: number; readonly refreshTokenExpiresInSeconds: number; readonly bcryptRounds: number};
 }
 

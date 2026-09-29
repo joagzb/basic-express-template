@@ -1,38 +1,35 @@
 import {createClient, RedisClientType} from 'redis';
 import {AppConfig} from '../../config';
 import {ILoggerService} from '../logging/logger.interface';
-import {RedisCommandClient, RedisService} from './redis.service';
+import {RedisService} from './redis.service';
 
+/**
+ * Owns the node-redis client lifecycle and passes the client directly to
+ * `RedisService` for future application consumers.
+ *
+ * Flow: node-redis client -> `RedisService` -> `IRedisOperations` consumers.
+ *
+ * This keeps connection lifecycle and raw node-redis semantics below the
+ * application-facing serialization, TTL, and error boundary.
+ */
 export class RedisConnection {
   private readonly client: RedisClientType;
   public readonly service: RedisService;
 
   public constructor(config: AppConfig, logger: ILoggerService) {
-    this.client = createClient({
+    const clientOptions = {
       url: config.redis.url,
       disableOfflineQueue: true,
       socket: {
         connectTimeout: config.redis.connectTimeoutMs,
         reconnectStrategy: false, // Disables internal reconnection loop in favor of your startup retry strategy
       },
-    });
+    } as const;
+
+    this.client = createClient(clientOptions);
 
     this.client.on('error', (error: Error) => logger.error({error}, 'Redis client error'));
-
-    const client = this.client;
-    const commands: RedisCommandClient = {
-      get isReady() {
-        return client.isReady;
-      },
-      set: (key, value, options) => client.set(key, value, options),
-      get: key => client.get(key),
-      del: key => client.del(key),
-      exists: key => client.exists(key),
-      expire: (key, ttlSeconds) => client.expire(key, ttlSeconds),
-      ttl: key => client.ttl(key),
-      eval: (script, options) => client.eval(script, options),
-    };
-    this.service = new RedisService(commands);
+    this.service = new RedisService(this.client);
   }
 
   public async connect(): Promise<void> {
@@ -43,7 +40,7 @@ export class RedisConnection {
 
   public async close(): Promise<void> {
     if (this.client.isOpen) {
-      await this.client.quit();
+      await this.client.close();
     }
   }
 }

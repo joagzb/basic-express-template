@@ -1,6 +1,6 @@
 import {getMetadataArgsStorage, Repository} from 'typeorm';
-import {TypeOrmUserRepository} from '../infrastructure/persistence/postgres/typeorm-user.repository';
-import {UserEntity} from '../infrastructure/persistence/postgres/user.entity';
+import {UserEntity} from '../infrastructure/persistence/postgres/entities/user.entity';
+import {TypeOrmUserRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-user.repository';
 
 const ada: UserEntity = {
   id: 'user-1',

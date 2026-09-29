@@ -1,9 +1,5 @@
 # Add an endpoint set
 
-Follow the User feature. Keep each dependency visible and place every concern in its owning layer.
-
-## Quick path
-
 1. Add domain models and contracts only when the use case needs them.
 2. Add application DTOs, a typed manual validator, and a Service Layer class.
 3. Add a thin controller and an explicit `BaseRoutes` subclass.
@@ -49,11 +45,11 @@ export class ProjectService {
 
 ## 3. Implement adapters
 
-Implement domain-owned repository contracts under `src/infrastructure`. A persisted feature needs both memory and PostgreSQL adapters when it participates in the configured provider choice. Register TypeORM entities and migrations in the existing data source. User persistence currently selects interchangeable memory and TypeORM/PostgreSQL implementations of `IUserRepository`; a future JSON-file adapter belongs here and should require only infrastructure, configuration, and composition changes.
+Implement domain-owned repository contracts under `src/infrastructure`. A persisted feature needs both memory and PostgreSQL adapters when it participates in the configured provider choice. Keep TypeORM entities under `src/infrastructure/persistence/postgres/entities`, map them to framework-independent domain types, and register entities and migrations in the existing data source. User persistence currently selects interchangeable memory and TypeORM/PostgreSQL implementations of `IUserRepository`.
 
-Cross-cutting storage behavior belongs in infrastructure decorators or adapters behind inward contracts. The User cache decorator implements `IUserRepository`, performs cache-aside reads, invalidates after successful writes, and is applied only in `src/server.ts`. Application services must not import Redis. Choose failure policy explicitly: derived caches may fail open, while authoritative session or token-rotation state must fail closed.
+Cross-cutting storage behavior belongs in infrastructure adapters behind inward contracts. User endpoints currently use authoritative persistence directly and are not cached. Application services must not import node-redis; future Redis consumers should depend on `IRedisOperations` and be composed in `src/server.ts`. Choose failure policy explicitly: derived caches may fail open, while authoritative state must fail closed. See [Use the Redis integration](redis.md) for the current boundaries.
 
-If multiple repositories share one provider lifecycle, evolve the persistence selector into an explicit bundle and return every repository from each enum-keyed provider factory.
+When multiple repositories share one provider lifecycle or transaction boundary, return them as one explicit bundle from each enum-keyed provider factory. Auth registration follows this pattern so the selected provider owns its atomic commit.
 
 ## 4. Add the controller
 
@@ -101,9 +97,9 @@ Add the service to `RouteDependencies`, construct its controller and routes in `
 - Service tests: validation, normalization, repository calls, and no write after invalid input.
 - HTTP tests: authentication, status/body contracts, error propagation, and malformed input.
 - Adapter tests: persistence mapping and provider-specific failures.
-- Cache/session tests: hit/miss behavior, invalidation, failure policy, atomic rotation/reuse, and revocation through fake ports without live Redis.
+- Session tests: provider-specific behavior, expiry, rotation, reuse handling, and revocation without live Redis.
 - OpenAPI: paths, request DTOs, response DTOs, errors, and security.
 
-Update `README.md` for public behavior and this architecture guide when boundaries or wiring change.
-
 The default application startup requires PostgreSQL and runs registered TypeORM migrations automatically. Use memory persistence only as an explicit non-durable choice.
+
+Continue with [Add HTTP middleware safely](middlewares.md) or [Use the Redis integration](redis.md) when the endpoint needs either cross-cutting behavior.

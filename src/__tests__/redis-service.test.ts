@@ -1,29 +1,35 @@
-import {RedisCommandClient, RedisSerializationError, RedisService, RedisUnavailableError} from '../infrastructure/cache/redis.service';
+import {RedisSerializationError, RedisService, RedisUnavailableError} from '../infrastructure/cache/redis.service';
 
-const createClient = (): jest.Mocked<RedisCommandClient> =>
-  ({
-    isReady: true,
-    set: jest.fn().mockResolvedValue('OK'),
-    get: jest.fn().mockResolvedValue(null),
-    del: jest.fn().mockResolvedValue(0),
-    exists: jest.fn().mockResolvedValue(0),
-    expire: jest.fn().mockResolvedValue(false),
-    ttl: jest.fn().mockResolvedValue(-2),
-    eval: jest.fn().mockResolvedValue(['missing']),
-  }) as jest.Mocked<RedisCommandClient>;
+type RedisClientMock = {
+  isReady: boolean;
+  set: jest.Mock;
+  get: jest.Mock;
+  del: jest.Mock;
+  exists: jest.Mock;
+  expire: jest.Mock;
+  ttl: jest.Mock;
+};
+
+const createClient = (): RedisClientMock => ({
+  isReady: true,
+  set: jest.fn().mockResolvedValue('OK'),
+  get: jest.fn().mockResolvedValue(null),
+  del: jest.fn().mockResolvedValue(0),
+  exists: jest.fn().mockResolvedValue(0),
+  expire: jest.fn().mockResolvedValue(false),
+  ttl: jest.fn().mockResolvedValue(-2),
+});
 
 describe('RedisService', () => {
-  test('serializes JSON values and applies an optional TTL', async () => {
+  test('serializes JSON values and supports set and put with optional TTLs', async () => {
     const client = createClient();
     const redis = new RedisService(client);
 
     await redis.set('user:1', {name: 'Ada', roles: ['admin']}, 60);
     await redis.put('feature:enabled', true);
-    await redis.update('counter', 2);
 
     expect(client.set).toHaveBeenNthCalledWith(1, 'user:1', '{"name":"Ada","roles":["admin"]}', {EX: 60});
     expect(client.set).toHaveBeenNthCalledWith(2, 'feature:enabled', 'true', undefined);
-    expect(client.set).toHaveBeenNthCalledWith(3, 'counter', '2', undefined);
   });
 
   test('deserializes values and distinguishes a missing key', async () => {
@@ -35,7 +41,7 @@ describe('RedisService', () => {
     await expect(redis.get('missing')).resolves.toBeNull();
   });
 
-  test('provides boolean key operations and Redis TTL semantics', async () => {
+  test('provides boolean key operations and Redis expiry inspection semantics', async () => {
     const client = createClient();
     client.del.mockResolvedValue(1);
     client.exists.mockResolvedValue(1);
@@ -47,22 +53,6 @@ describe('RedisService', () => {
     await expect(redis.exists('user:1')).resolves.toBe(true);
     await expect(redis.expire('user:1', 60)).resolves.toBe(true);
     await expect(redis.ttl('user:1')).resolves.toBe(45);
-  });
-
-  test('uses one Lua operation for digest comparison, replacement, and reuse revocation', async () => {
-    const client = createClient();
-    client.eval.mockResolvedValueOnce(['updated', 'user-id']).mockResolvedValueOnce(['mismatch']);
-    const redis = new RedisService(client);
-
-    await expect(redis.compareDigestAndReplace('auth:sessions:1', 'digest-1', {refreshTokenDigest: 'digest-2'}, 60)).resolves.toEqual({
-      status: 'updated',
-      userId: 'user-id',
-    });
-    await expect(redis.compareDigestAndReplace('auth:sessions:1', 'digest-1', {refreshTokenDigest: 'digest-2'}, 60)).resolves.toEqual({status: 'mismatch'});
-
-    expect(client.eval).toHaveBeenCalledTimes(2);
-    expect(client.get).not.toHaveBeenCalled();
-    expect(client.set).not.toHaveBeenCalled();
   });
 
   test('reports disabled and disconnected clients instead of hiding unavailable Redis', async () => {

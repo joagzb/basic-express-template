@@ -68,7 +68,6 @@ export interface ParsedEnvironment {
   readonly REDIS_PORT: number;
   readonly REDIS_PASSWORD: string;
   readonly REDIS_CONNECT_TIMEOUT_MS: number;
-  readonly USER_CACHE_TTL_SECONDS: number;
   readonly STARTUP_CONNECT_RETRIES: number;
   readonly STARTUP_RETRY_DELAY_MS: number;
   readonly JWT_SECRET: string;
@@ -97,7 +96,6 @@ export const parseEnvironment = (source: NodeJS.ProcessEnv): ParsedEnvironment =
     REDIS_PORT: parseInteger(source.REDIS_PORT, 'REDIS_PORT', 6379, {min: 1, max: 65535}),
     REDIS_PASSWORD: parseString(source.REDIS_PASSWORD, 'REDIS_PASSWORD', '', {allowEmpty: true}),
     REDIS_CONNECT_TIMEOUT_MS: parseInteger(source.REDIS_CONNECT_TIMEOUT_MS, 'REDIS_CONNECT_TIMEOUT_MS', 3000, {min: 1, max: 60000}),
-    USER_CACHE_TTL_SECONDS: parseInteger(source.USER_CACHE_TTL_SECONDS, 'USER_CACHE_TTL_SECONDS', 60, {min: 1}),
     STARTUP_CONNECT_RETRIES: parseInteger(source.STARTUP_CONNECT_RETRIES, 'STARTUP_CONNECT_RETRIES', 1, {min: 0, max: 10}),
     STARTUP_RETRY_DELAY_MS: parseInteger(source.STARTUP_RETRY_DELAY_MS, 'STARTUP_RETRY_DELAY_MS', 250, {min: 0, max: 30000}),
     JWT_SECRET: parseString(source.JWT_SECRET, 'JWT_SECRET', 'development-only-secret-change-me-now', {pattern: /^.{32,}$/}),
