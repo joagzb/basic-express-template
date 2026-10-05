@@ -61,5 +61,3 @@ export class PinoLoggerService implements ILoggerService {
     };
   }
 }
-
-export const createLogger = (config: Pick<AppConfig, 'logging'>, destination?: LoggerDestination): ILoggerService => new PinoLoggerService(config, destination);

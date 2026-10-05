@@ -1,12 +1,12 @@
 import {QueryRunner, Table} from 'typeorm';
 import {testConfig} from '../config/test-config';
-import {createPostgresDataSource} from '../infrastructure/persistence/postgres/data-source';
+import {PostgresDataSourceFactory} from '../infrastructure/persistence/postgres/data-source';
 import {AuthSessionEntity} from '../infrastructure/persistence/postgres/entities/auth-session.entity';
 import {CreateAuthSessionsTable1760000002000} from '../infrastructure/persistence/postgres/migrations/create-auth-sessions-table';
 
 describe('PostgreSQL auth session schema', () => {
   test('registers the auth session entity and migration', () => {
-    const dataSource = createPostgresDataSource(testConfig);
+    const dataSource = new PostgresDataSourceFactory().create(testConfig);
     const entities = dataSource.options.entities ?? [];
     const migrations = dataSource.options.migrations ?? [];
 

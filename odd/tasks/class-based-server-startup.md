@@ -49,10 +49,14 @@ The server bootstrap is now organized as a class, but function-based middleware,
   - Checks: `npm test`, `npm run check`, and `npm run build` passed.
 - [x] ODD-3: Convert exported presentation behavior to classes and align presentation tests/docs.
   - Route: delegated direct; implementation spans middleware, route/OpenAPI composition, consumers, tests, and guidance.
+  - Commit: `e385599` (`format bootstrap`).
   - Checks: focused `app.test.ts` and `server.test.ts` passed (2 suites/24 tests); `npm run check` passed (19 suites/88 tests passed; 1 suite and 1 test skipped); `npm run build` passed.
-- [ ] ODD-4: Convert exported infrastructure behavior to classes and align infrastructure tests/docs.
+- [x] ODD-4: Convert exported infrastructure behavior to classes, move retry into `infrastructure/helpers/retry`, and align tests/docs.
   - Route: delegated direct; implementation spans retry, logger, persistence construction/selection, startup consumers, and tests.
-  - Checks: focused infrastructure/startup tests, `npm run check`, and `npm run build`.
+  - Checks: focused retry/persistence/logger/server tests passed (5 suites/12 tests); `npm run check` passed (19 suites/88 tests, 1 skipped); `npm run build` passed. ODD-5 remains pending.
+- [ ] ODD-5: Add OpenAPI tags so all endpoints are organized under Health, Authentication, and Users categories.
+  - Route: delegated direct; implementation changes the OpenAPI document and tests that validate its operations.
+  - Checks: focused `app.test.ts`, `npm run check`, and `npm run build`.
 
 ## Progress
 
@@ -62,4 +66,5 @@ The server bootstrap is now organized as a class, but function-based middleware,
 - User selected the scope: all exported behavior functions in presentation/infrastructure become instance classes; small private pure helpers remain functions.
 - Native review preflight has failed previously before authority started due to repository-root resolution; do not contact remote services. Continue local implementation and checks only, but do not fabricate native review status or receipt.
 - ODD-3 implementation converts exported presentation composition into `HttpMiddleware`, `RoutesFactory`, and `OpenApiDocument` instance classes. `createApp()` still only assembles the HTTP pipeline; Express receives stable callback properties, and private pure shaping helpers remain functions.
-- Next: implement ODD-4 only; infrastructure behavior remains pending and unchanged by this task.
+- New user requests: move retry strategy to `src/infrastructure/helpers/retry/`; categorize OpenAPI operations, with every user operation tagged `Users`.
+- ODD-4 is complete. ODD-5 remains pending and must be implemented separately; do not change OpenAPI tags in ODD-4.

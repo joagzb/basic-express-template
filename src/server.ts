@@ -8,10 +8,10 @@ import {UserService} from './application/users/user.service';
 import {AppConfig, loadConfig} from './config';
 import {RedisConnection} from './infrastructure/cache/redis.connection';
 import {ILoggerService} from './infrastructure/logging/logger.interface';
-import {createLogger} from './infrastructure/logging/logger.service';
-import {PersistenceSelection, selectPersistence} from './infrastructure/persistence/select-user-persistence';
+import {PinoLoggerService} from './infrastructure/logging/logger.service';
+import {PersistenceSelection, PersistenceSelector} from './infrastructure/persistence/select-user-persistence';
 import {PasswordService, RefreshTokenService, TokenService} from './infrastructure/security/security.service';
-import {withFibonacciRetry} from './infrastructure/startup/retry.strategy';
+import {FibonacciRetryStrategy} from './infrastructure/helpers/retry/retry.strategy';
 import {RoutesFactory} from './presentation/http/base/routes.factory';
 import {logStartupBanner} from './startup-banner';
 
@@ -49,11 +49,11 @@ export class Server {
   }
 
   private createLogger(config: AppConfig): ILoggerService {
-    return createLogger(config);
+    return new PinoLoggerService(config);
   }
 
   private async initializePersistence(config: AppConfig, logger: ILoggerService): Promise<PersistenceSelection> {
-    const persistence = await selectPersistence(config, withFibonacciRetry, logger);
+    const persistence = await new PersistenceSelector(new FibonacciRetryStrategy(), logger).select(config);
     this.dataSource = persistence.dataSource;
     return persistence;
   }
@@ -64,7 +64,7 @@ export class Server {
     }
 
     this.redis = new RedisConnection(config, logger);
-    await withFibonacciRetry({
+    await new FibonacciRetryStrategy().execute({
       name: 'Redis',
       target: new URL(config.redis.url).host,
       maxRetries: config.startup.connectRetries,

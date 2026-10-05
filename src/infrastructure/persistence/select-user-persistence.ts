@@ -3,12 +3,12 @@ import {AppConfig, PersistenceProvider} from '../../config';
 import {IAuthRegistrationRepository, IAuthSessionRepository} from '../../domain/auth/auth';
 import {IUserRepository} from '../../domain/users/user.repository';
 import {ILoggerService} from '../logging/logger.interface';
-import {RetryStrategy} from '../startup/retry.strategy';
+import {RetryStrategy} from '../helpers/retry/retry.strategy';
 import {InMemoryAuthRegistrationRepository} from './memory/in-memory-auth-registration.repository';
 import {InMemoryAuthSessionRepository} from './memory/in-memory-auth-session.repository';
 import {InMemoryPersistenceState} from './memory/in-memory-persistence.state';
 import {InMemoryUserRepository} from './memory/in-memory-user.repository';
-import {createPostgresDataSource} from './postgres/data-source';
+import {PostgresDataSourceFactory} from './postgres/data-source';
 import {UserEntity} from './postgres/entities/user.entity';
 import {TypeOrmAuthRegistrationRepository} from './postgres/repositories/typeorm-auth-registration.repository';
 import {TypeOrmAuthSessionRepository} from './postgres/repositories/typeorm-auth-session.repository';
@@ -21,26 +21,46 @@ export interface PersistenceSelection {
   readonly dataSource?: DataSource;
 }
 
-type PersistenceFactory = (config: AppConfig, retry: RetryStrategy, logger: ILoggerService, dataSourceFactory: typeof createPostgresDataSource) => Promise<PersistenceSelection>;
+interface DataSourceFactory {
+  create(config: AppConfig): DataSource;
+}
 
-const persistenceFactories: Record<PersistenceProvider, PersistenceFactory> = {
-  [PersistenceProvider.MEMORY]: async () => {
-    const state = new InMemoryPersistenceState();
-    return {
-      userRepository: new InMemoryUserRepository(state),
-      authSessionRepository: new InMemoryAuthSessionRepository(state),
-      authRegistrationRepository: new InMemoryAuthRegistrationRepository(state),
+type PersistenceFactory = (config: AppConfig) => Promise<PersistenceSelection>;
+
+export class PersistenceSelector {
+  private readonly persistenceFactories: Record<PersistenceProvider, PersistenceFactory>;
+
+  public constructor(
+    private readonly retry: RetryStrategy,
+    private readonly logger: ILoggerService,
+    private readonly dataSourceFactory: DataSourceFactory = new PostgresDataSourceFactory(),
+  ) {
+    this.persistenceFactories = {
+      [PersistenceProvider.MEMORY]: async () => {
+        const state = new InMemoryPersistenceState();
+        return {
+          userRepository: new InMemoryUserRepository(state),
+          authSessionRepository: new InMemoryAuthSessionRepository(state),
+          authRegistrationRepository: new InMemoryAuthRegistrationRepository(state),
+        };
+      },
+      [PersistenceProvider.POSTGRES]: config => this.createPostgresPersistence(config),
     };
-  },
-  [PersistenceProvider.POSTGRES]: async (config, retry, logger, dataSourceFactory) => {
-    const dataSource = dataSourceFactory(config);
+  }
+
+  public select(config: AppConfig): Promise<PersistenceSelection> {
+    return this.persistenceFactories[config.persistence.provider](config);
+  }
+
+  private async createPostgresPersistence(config: AppConfig): Promise<PersistenceSelection> {
+    const dataSource = this.dataSourceFactory.create(config);
     try {
-      await retry({
+      await this.retry.execute({
         name: 'PostgreSQL',
         target: `${config.postgres.host}:${config.postgres.port}`,
         maxRetries: config.startup.connectRetries,
         baseDelayMs: config.startup.retryDelayMs,
-        logger,
+        logger: this.logger,
         fn: async () => void (await dataSource.initialize()),
       });
       return {
@@ -55,14 +75,5 @@ const persistenceFactories: Record<PersistenceProvider, PersistenceFactory> = {
       }
       throw error;
     }
-  },
-};
-
-export const selectPersistence = async (
-  config: AppConfig,
-  retry: RetryStrategy,
-  logger: ILoggerService,
-  dataSourceFactory: typeof createPostgresDataSource = createPostgresDataSource,
-): Promise<PersistenceSelection> => {
-  return persistenceFactories[config.persistence.provider](config, retry, logger, dataSourceFactory);
-};
+  }
+}

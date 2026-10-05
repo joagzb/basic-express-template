@@ -10,8 +10,7 @@ import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/
 import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
 import {InMemoryPersistenceState} from '../infrastructure/persistence/memory/in-memory-persistence.state';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
-import * as persistenceModule from '../infrastructure/persistence/select-user-persistence';
-import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
+import {PersistenceSelector} from '../infrastructure/persistence/select-user-persistence';
 import {Server} from '../server';
 
 jest.mock('../infrastructure/cache/redis.connection');
@@ -41,7 +40,7 @@ describe('Server startup lifecycle', () => {
       }),
     } as unknown as Express;
     const createApp = jest.spyOn(appModule, 'createApp').mockReturnValue(app);
-    const selectPersistence = jest.spyOn(persistenceModule, 'selectPersistence').mockResolvedValue(createMemoryPersistence());
+    const selectPersistence = jest.spyOn(PersistenceSelector.prototype, 'select').mockResolvedValue(createMemoryPersistence());
     jest.spyOn(configModule, 'loadConfig').mockReturnValue(testConfig);
     const processOnce = jest.spyOn(process, 'once').mockReturnValue(process);
 
@@ -72,7 +71,7 @@ describe('Server startup lifecycle', () => {
     } as unknown as RedisConnection;
     const RedisConnectionMock = RedisConnection as jest.MockedClass<typeof RedisConnection>;
     RedisConnectionMock.mockImplementation(() => redis);
-    const selectPersistence = jest.spyOn(persistenceModule, 'selectPersistence').mockResolvedValue(createMemoryPersistence());
+    const selectPersistence = jest.spyOn(PersistenceSelector.prototype, 'select').mockResolvedValue(createMemoryPersistence());
     const createApp = jest.spyOn(appModule, 'createApp').mockReturnValue(app);
     jest.spyOn(configModule, 'loadConfig').mockReturnValue(config);
     const processOnce = jest.spyOn(process, 'once').mockReturnValue(process);
@@ -80,7 +79,7 @@ describe('Server startup lifecycle', () => {
     await expect(new Server().startServer()).resolves.toBe(httpServer);
 
     expect(connect).toHaveBeenCalledTimes(1);
-    expect(selectPersistence).toHaveBeenCalledWith(config, withFibonacciRetry, expect.anything());
+    expect(selectPersistence).toHaveBeenCalledWith(config);
     expect(createApp).toHaveBeenCalledTimes(1);
     processOnce.mockRestore();
   });
@@ -97,7 +96,7 @@ describe('Server startup lifecycle', () => {
     const destroy = jest.fn().mockResolvedValue(undefined);
     const dataSource = {isInitialized: true, destroy} as unknown as DataSource;
     jest.spyOn(configModule, 'loadConfig').mockReturnValue(testConfig);
-    jest.spyOn(persistenceModule, 'selectPersistence').mockResolvedValue(createMemoryPersistence(dataSource));
+    jest.spyOn(PersistenceSelector.prototype, 'select').mockResolvedValue(createMemoryPersistence(dataSource));
     jest.spyOn(appModule, 'createApp').mockReturnValue(app);
 
     await expect(new Server().startServer()).rejects.toBe(failure);
@@ -115,7 +114,7 @@ describe('Server startup lifecycle', () => {
     const dataSource = {isInitialized: true, destroy} as unknown as DataSource;
     const createHttpApp = jest.spyOn(appModule, 'createApp');
     jest.spyOn(configModule, 'loadConfig').mockReturnValue(config);
-    jest.spyOn(persistenceModule, 'selectPersistence').mockResolvedValue(createMemoryPersistence(dataSource));
+    jest.spyOn(PersistenceSelector.prototype, 'select').mockResolvedValue(createMemoryPersistence(dataSource));
 
     await expect(new Server().startServer()).rejects.toThrow('Redis connection to test-redis:6379 failed after 2 attempts: connection refused');
     expect(connect).toHaveBeenCalledTimes(2);

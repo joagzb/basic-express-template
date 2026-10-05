@@ -32,13 +32,19 @@ Domain and application code should not depend on Express, TypeORM, node-redis, o
 
 This is a project convention for exported presentation responsibilities, not a claim that functions are architecturally invalid. Small private pure helpers, such as OpenAPI body shaping and error-body construction, remain functions when that keeps the implementation clearer. `createApp()` remains the HTTP assembly boundary: it registers middleware, routes, documentation, and terminal error handlers, but does not open listeners or connect external services.
 
+## Infrastructure convention
+
+Exported infrastructure behavior is exposed through cohesive, instance-based classes. `PinoLoggerService`, `PersistenceSelector`, `PostgresDataSourceFactory`, and `FibonacciRetryStrategy` own logger construction, provider selection, PostgreSQL data-source creation, and retry execution respectively. These classes are constructed with their collaborators so tests can replace them without static-only utility classes. Small private pure helpers, such as Fibonacci calculation, remain unexported functions.
+
+The retry strategy belongs to `src/infrastructure/helpers/retry/retry.strategy.ts` because it is reusable infrastructure behavior rather than startup composition. `Server` and persistence selection depend on its `RetryStrategy` contract; they do not own retry timing or duplicate the retry implementation.
+
 ## Composition files
 
-| File                                           | Responsibility                                                                                                                                                                   |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app.ts`                                   | Creates Express, installs global middleware, mounts injected routes and Swagger, then adds not-found and error handlers. It does not connect services or open a listener.        |
-| `src/presentation/http/base/routes.factory.ts` | `RoutesFactory` turns already-constructed application services into controllers, middleware, and route definitions.                                                              |
-| `src/server.ts`                                | Loads configuration, selects persistence, optionally connects Redis, constructs services, starts the HTTP listener, and closes infrastructure during shutdown or failed startup. |
+| File                                           | Responsibility                                                                                                                                                                                 |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app.ts`                                   | Creates Express, installs global middleware, mounts injected routes and Swagger, then adds not-found and error handlers. It does not connect services or open a listener.                      |
+| `src/presentation/http/base/routes.factory.ts` | `RoutesFactory` turns already-constructed application services into controllers, middleware, and route definitions.                                                                            |
+| `src/server.ts`                                | Loads configuration, constructs infrastructure classes, selects persistence, optionally connects Redis, starts the HTTP listener, and closes infrastructure during shutdown or failed startup. |
 
 The normal request path is:
 
@@ -48,7 +54,7 @@ route -> middleware -> controller -> application service -> repository contract 
 
 ## Persistence selection
 
-`PERSISTENCE_PROVIDER` selects one coherent persistence bundle in `select-user-persistence.ts`:
+`PERSISTENCE_PROVIDER` selects one coherent persistence bundle through `PersistenceSelector` in `select-user-persistence.ts`:
 
 | Provider   | Users                         | Auth sessions                 | Registration                                       |
 | ---------- | ----------------------------- | ----------------------------- | -------------------------------------------------- |

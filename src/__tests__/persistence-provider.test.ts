@@ -1,6 +1,6 @@
 import {DataSource, Repository} from 'typeorm';
 import {parseConfig, PersistenceProvider} from '../config';
-import {createLogger} from '../infrastructure/logging/logger.service';
+import {PinoLoggerService} from '../infrastructure/logging/logger.service';
 import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/memory/in-memory-auth-registration.repository';
 import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
@@ -9,8 +9,14 @@ import {UserEntity} from '../infrastructure/persistence/postgres/entities/user.e
 import {TypeOrmAuthRegistrationRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-auth-registration.repository';
 import {TypeOrmAuthSessionRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-auth-session.repository';
 import {TypeOrmUserRepository} from '../infrastructure/persistence/postgres/repositories/typeorm-user.repository';
-import {selectPersistence} from '../infrastructure/persistence/select-user-persistence';
-import {withFibonacciRetry} from '../infrastructure/startup/retry.strategy';
+import {PersistenceSelector} from '../infrastructure/persistence/select-user-persistence';
+import {FibonacciRetryStrategy} from '../infrastructure/helpers/retry/retry.strategy';
+
+const selectPersistence = (
+  config: ReturnType<typeof parseConfig>,
+  dataSourceFactory?: jest.Mock,
+): Promise<import('../infrastructure/persistence/select-user-persistence').PersistenceSelection> =>
+  new PersistenceSelector(new FibonacciRetryStrategy(), new PinoLoggerService(config), dataSourceFactory ? {create: dataSourceFactory} : undefined).select(config);
 
 describe('user persistence provider selection', () => {
   test('defaults to PostgreSQL without silently falling back', async () => {
@@ -19,7 +25,7 @@ describe('user persistence provider selection', () => {
       throw new Error('postgres unavailable');
     });
 
-    await expect(selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory)).rejects.toThrow('postgres unavailable');
+    await expect(selectPersistence(config, dataSourceFactory)).rejects.toThrow('postgres unavailable');
     expect(config.persistence.provider).toBe(PersistenceProvider.POSTGRES);
     expect(dataSourceFactory).toHaveBeenCalledTimes(1);
   });
@@ -28,7 +34,7 @@ describe('user persistence provider selection', () => {
     const config = parseConfig({NODE_ENV: 'test', LOG_LEVEL: 'silent', PERSISTENCE_PROVIDER: PersistenceProvider.MEMORY});
     const dataSourceFactory = jest.fn();
 
-    const persistence = await selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
+    const persistence = await selectPersistence(config, dataSourceFactory);
 
     expect(persistence.userRepository).toBeInstanceOf(InMemoryUserRepository);
     expect(persistence.authSessionRepository).toBeInstanceOf(InMemoryAuthSessionRepository);
@@ -47,7 +53,7 @@ describe('user persistence provider selection', () => {
     const dataSourceFactory = jest.fn().mockReturnValue(dataSource);
     const config = parseConfig({NODE_ENV: 'test', LOG_LEVEL: 'silent', PERSISTENCE_PROVIDER: PersistenceProvider.POSTGRES});
 
-    const persistence = await selectPersistence(config, withFibonacciRetry, createLogger(config), dataSourceFactory);
+    const persistence = await selectPersistence(config, dataSourceFactory);
 
     expect(dataSourceFactory).toHaveBeenCalledWith(config);
     expect(dataSource.initialize).toHaveBeenCalledTimes(1);
@@ -71,7 +77,7 @@ describe('user persistence provider selection', () => {
     } as unknown as DataSource;
     const config = parseConfig({NODE_ENV: 'test', LOG_LEVEL: 'silent', PERSISTENCE_PROVIDER: PersistenceProvider.POSTGRES});
 
-    await expect(selectPersistence(config, withFibonacciRetry, createLogger(config), () => dataSource)).rejects.toBe(failure);
+    await expect(selectPersistence(config, jest.fn().mockReturnValue(dataSource))).rejects.toBe(failure);
     expect(dataSource.destroy).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 import {loadConfig} from '../config';
 import {RedisConnection} from '../infrastructure/cache/redis.connection';
-import {createLogger} from '../infrastructure/logging/logger.service';
-import {createPostgresDataSource} from '../infrastructure/persistence/postgres/data-source';
+import {PinoLoggerService} from '../infrastructure/logging/logger.service';
+import {PostgresDataSourceFactory} from '../infrastructure/persistence/postgres/data-source';
 
 const integrationTest = process.env.RUN_INTEGRATION_TESTS === 'true' ? test : test.skip;
 
@@ -10,8 +10,8 @@ describe('isolated infrastructure', () => {
     'connects to PostgreSQL and Redis from the test configuration',
     async () => {
       const config = loadConfig();
-      const logger = createLogger(config);
-      const dataSource = createPostgresDataSource(config);
+      const logger = new PinoLoggerService(config);
+      const dataSource = new PostgresDataSourceFactory().create(config);
       const redis = new RedisConnection(config, logger);
 
       try {

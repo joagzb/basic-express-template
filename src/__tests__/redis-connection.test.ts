@@ -1,7 +1,7 @@
 import {createClient} from 'redis';
 import {testConfig} from '../config/test-config';
 import {RedisConnection} from '../infrastructure/cache/redis.connection';
-import {createLogger} from '../infrastructure/logging/logger.service';
+import {PinoLoggerService} from '../infrastructure/logging/logger.service';
 
 jest.mock('redis', () => ({...jest.requireActual('redis'), createClient: jest.fn()}));
 
@@ -22,7 +22,7 @@ describe('RedisConnection', () => {
     };
     jest.mocked(createClient).mockReturnValue(client as never);
 
-    const connection = new RedisConnection(testConfig, createLogger(testConfig));
+    const connection = new RedisConnection(testConfig, new PinoLoggerService(testConfig));
     await connection.service.set('project:1', {name: 'Example'});
     await expect(connection.service.get('project:1')).resolves.toBeNull();
     await connection.close();
@@ -42,7 +42,7 @@ describe('RedisConnection', () => {
     };
     jest.mocked(createClient).mockReturnValue(client as never);
 
-    const connection = new RedisConnection(testConfig, createLogger(testConfig));
+    const connection = new RedisConnection(testConfig, new PinoLoggerService(testConfig));
     await connection.connect();
 
     expect(client.connect).toHaveBeenCalledTimes(1);

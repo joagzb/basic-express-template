@@ -6,7 +6,7 @@ import {HealthService} from '../application/health/health.service';
 import {UserService} from '../application/users/user.service';
 import {testConfig} from '../config/test-config';
 import {IAuthSessionRepository} from '../domain/auth/auth';
-import {createLogger} from '../infrastructure/logging/logger.service';
+import {PinoLoggerService} from '../infrastructure/logging/logger.service';
 import {InMemoryAuthRegistrationRepository} from '../infrastructure/persistence/memory/in-memory-auth-registration.repository';
 import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memory/in-memory-auth-session.repository';
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
@@ -27,7 +27,7 @@ const createTestApp = (
 ) =>
   createApp({
     config: testConfig,
-    logger: createLogger(testConfig),
+    logger: new PinoLoggerService(testConfig),
     routes: [
       ...new RoutesFactory({
         userService,
