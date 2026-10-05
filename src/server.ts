@@ -12,7 +12,7 @@ import {createLogger} from './infrastructure/logging/logger.service';
 import {PersistenceSelection, selectPersistence} from './infrastructure/persistence/select-user-persistence';
 import {PasswordService, RefreshTokenService, TokenService} from './infrastructure/security/security.service';
 import {withFibonacciRetry} from './infrastructure/startup/retry.strategy';
-import {createRoutes} from './presentation/http/base/routes.factory';
+import {RoutesFactory} from './presentation/http/base/routes.factory';
 import {logStartupBanner} from './startup-banner';
 
 export class Server {
@@ -81,7 +81,7 @@ export class Server {
     const sessionsRepository = persistence.authSessionRepository;
     const registrationsRepository = persistence.authRegistrationRepository;
     const usersRepository = persistence.userRepository;
-    const routes = createRoutes({
+    const routes = new RoutesFactory({
       userService: new UserService(usersRepository),
       authService: new AuthService(
         usersRepository,
@@ -94,7 +94,7 @@ export class Server {
       ),
       healthService: new HealthService(),
       accessTokenService: tokensService,
-    });
+    }).create();
 
     return createApp({config, logger, routes});
   }

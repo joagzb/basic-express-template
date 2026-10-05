@@ -26,12 +26,18 @@ presentation -> application -> domain
 
 Domain and application code should not depend on Express, TypeORM, node-redis, or environment configuration.
 
+## Presentation convention
+
+`HttpMiddleware` owns the application-level middleware callbacks, `RoutesFactory` composes route definitions from already-constructed services, and `OpenApiDocument` creates the OpenAPI document from runtime configuration. Route classes, controllers, and authentication middleware follow the same instance-oriented boundary. Their callback properties are stable and correctly bound before Express receives them, so async controller error forwarding, middleware ordering, and HTTP contracts remain unchanged.
+
+This is a project convention for exported presentation responsibilities, not a claim that functions are architecturally invalid. Small private pure helpers, such as OpenAPI body shaping and error-body construction, remain functions when that keeps the implementation clearer. `createApp()` remains the HTTP assembly boundary: it registers middleware, routes, documentation, and terminal error handlers, but does not open listeners or connect external services.
+
 ## Composition files
 
 | File                                           | Responsibility                                                                                                                                                                   |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/app.ts`                                   | Creates Express, installs global middleware, mounts injected routes and Swagger, then adds not-found and error handlers. It does not connect services or open a listener.        |
-| `src/presentation/http/base/routes.factory.ts` | Turns already-constructed application services into controllers, middleware, and route definitions.                                                                              |
+| `src/presentation/http/base/routes.factory.ts` | `RoutesFactory` turns already-constructed application services into controllers, middleware, and route definitions.                                                              |
 | `src/server.ts`                                | Loads configuration, selects persistence, optionally connects Redis, constructs services, starts the HTTP listener, and closes infrastructure during shutdown or failed startup. |
 
 The normal request path is:

@@ -32,7 +32,7 @@ not-found handler <------------+
 final error handler -> safe HTTP error response
 ```
 
-`src/app.ts` establishes the global order. It mounts all injected route definitions after the global middleware, then mounts `createNotFoundHandler()` and `createErrorHandler(logger)` last. `UserRoutes` is the feature-level reference: `AuthenticationMiddleware.handle` is registered before every User controller method.
+`src/app.ts` establishes the global order. It creates one `HttpMiddleware` instance, mounts all injected route definitions after the global middleware, then mounts its `notFound` and `errorHandler` callbacks last. `UserRoutes` is the feature-level reference: `AuthenticationMiddleware.handle` is registered before every User controller method.
 
 Ordering is behavior, not decoration. Body parsing must run before code reads `request.body`; authentication must establish a principal before authorization uses it; the controller runs only after every guard calls `next()`.
 
@@ -44,7 +44,7 @@ Ordering is behavior, not decoration. Body parsing must run before code reads `r
 | One feature   | the feature's `BaseRoutes` subclass       | authentication shared by all feature endpoints        |
 | One endpoint  | immediately before its controller handler | endpoint-specific policy                              |
 
-Put reusable HTTP middleware in `src/presentation/http/middleware`. Keep feature-specific middleware beside its routes. Use a function for stateless behavior or a class with a stable `handle: RequestHandler` property when dependencies must be injected.
+Put reusable HTTP middleware in `src/presentation/http/middleware`. Keep feature-specific middleware beside its routes. This template uses cohesive instance classes for exported middleware construction and exposes stable `RequestHandler` properties to Express. A standalone function remains valid for small private, stateless behavior; the convention is about organizing exported presentation responsibilities, not declaring functions architecturally invalid in general.
 
 ## Handle success and failure explicitly
 

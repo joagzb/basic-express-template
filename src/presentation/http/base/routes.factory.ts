@@ -18,12 +18,16 @@ export interface RouteDependencies {
   readonly accessTokenService: ITokenService;
 }
 
-export const createRoutes = (deps: RouteDependencies): RouteDefinition[] => {
-  const authMiddleware = new AuthenticationMiddleware(deps.accessTokenService);
+export class RoutesFactory {
+  public constructor(private readonly deps: RouteDependencies) {}
 
-  return [
-    new HealthRoutes(new HealthController(deps.healthService)).definition,
-    new AuthRoutes(new AuthController(deps.authService), authMiddleware).definition,
-    new UserRoutes(new UserController(deps.userService), authMiddleware).definition,
-  ];
-};
+  public create(): RouteDefinition[] {
+    const authMiddleware = new AuthenticationMiddleware(this.deps.accessTokenService);
+
+    return [
+      new HealthRoutes(new HealthController(this.deps.healthService)).definition,
+      new AuthRoutes(new AuthController(this.deps.authService), authMiddleware).definition,
+      new UserRoutes(new UserController(this.deps.userService), authMiddleware).definition,
+    ];
+  }
+}

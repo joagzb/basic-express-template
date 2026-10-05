@@ -12,9 +12,9 @@ import {InMemoryAuthSessionRepository} from '../infrastructure/persistence/memor
 import {InMemoryUserRepository} from '../infrastructure/persistence/memory/in-memory-user.repository';
 import {PasswordService, RefreshTokenService, TokenService} from '../infrastructure/security/security.service';
 import {RouteDefinition} from '../presentation/http/base/base.routes';
-import {createRoutes} from '../presentation/http/base/routes.factory';
+import {RoutesFactory} from '../presentation/http/base/routes.factory';
 import {AppError} from '../presentation/http/errors/app-error';
-import {createOpenApiDocument} from '../presentation/http/openapi';
+import {OpenApiDocument} from '../presentation/http/openapi';
 
 const tokenService = new TokenService(testConfig.security.jwtSecret, testConfig.security.jwtExpiresInSeconds);
 
@@ -29,7 +29,7 @@ const createTestApp = (
     config: testConfig,
     logger: createLogger(testConfig),
     routes: [
-      ...createRoutes({
+      ...new RoutesFactory({
         userService,
         authService: new AuthService(
           repository,
@@ -42,7 +42,7 @@ const createTestApp = (
         ),
         healthService: new HealthService(),
         accessTokenService: tokenService,
-      }),
+      }).create(),
       ...additionalRoutes,
     ],
   });
@@ -252,7 +252,7 @@ describe('HTTP application', () => {
   });
 
   test('documents registration, login, and editable user request bodies', () => {
-    const document = createOpenApiDocument(testConfig);
+    const document = new OpenApiDocument(testConfig).create();
     expect(document.paths).toHaveProperty('/auth/register.post');
     expect(document.paths).toHaveProperty('/auth/login.post');
     expect(document.paths).toHaveProperty('/auth/refresh.post');

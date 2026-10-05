@@ -4,35 +4,25 @@ import {SessionStoreUnavailableError} from '../../../domain/auth/auth';
 import {ILoggerService} from '../../../infrastructure/logging/logger.interface';
 import {AppError} from '../errors/app-error';
 
-export const createNotFoundHandler = (): RequestHandler => (req, _res, next) => {
-  next(new AppError(404, 'NOT_FOUND', `Route ${req.method} ${req.path} was not found`));
-};
+export class HttpMiddleware {
+  public constructor(private readonly logger: ILoggerService) {}
 
-export const createRequestLogger =
-  (logger: ILoggerService): RequestHandler =>
-  (req, res, next) => {
+  public readonly notFound: RequestHandler = (req, _res, next) => {
+    next(new AppError(404, 'NOT_FOUND', `Route ${req.method} ${req.path} was not found`));
+  };
+
+  public readonly requestLogger: RequestHandler = (req, res, next) => {
     const startedAt = process.hrtime.bigint();
 
     res.once('finish', () => {
       const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-      logger.info({method: req.method, path: req.path, statusCode: res.statusCode, durationMs}, 'HTTP request completed');
+      this.logger.info({method: req.method, path: req.path, statusCode: res.statusCode, durationMs}, 'HTTP request completed');
     });
 
     next();
   };
 
-const buildErrorBody = (code: string, message: string, details?: unknown, timestamp?: string) => ({
-  error: {
-    code,
-    message,
-    timestamp: timestamp ?? new Date().toISOString(),
-    ...(details !== undefined ? {details} : {}),
-  },
-});
-
-export const createErrorHandler =
-  (logger: ILoggerService): ErrorRequestHandler =>
-  (error, req, res, _next) => {
+  public readonly errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     if (isMalformedJsonError(error)) {
       res.status(400).json(buildErrorBody('INVALID_JSON', 'Request body contains malformed JSON'));
       return;
@@ -53,9 +43,19 @@ export const createErrorHandler =
       return;
     }
 
-    logger.error({error, method: req.method, path: req.path}, 'Unhandled request error');
+    this.logger.error({error, method: req.method, path: req.path}, 'Unhandled request error');
     res.status(500).json(buildErrorBody('INTERNAL_ERROR', 'An unexpected error occurred'));
   };
+}
+
+const buildErrorBody = (code: string, message: string, details?: unknown, timestamp?: string) => ({
+  error: {
+    code,
+    message,
+    timestamp: timestamp ?? new Date().toISOString(),
+    ...(details !== undefined ? {details} : {}),
+  },
+});
 
 const isMalformedJsonError = (error: unknown): boolean => {
   return error instanceof SyntaxError && 'status' in error && 'body' in error && (error as {status?: unknown}).status === 400;

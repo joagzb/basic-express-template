@@ -1,5 +1,5 @@
 import {EnvironmentValidationError, parseConfig, PersistenceProvider} from '../config';
-import {createOpenApiDocument} from '../presentation/http/openapi';
+import {OpenApiDocument} from '../presentation/http/openapi';
 
 describe('configuration boundaries', () => {
   test('selects test configuration without reading development values', () => {
@@ -27,9 +27,9 @@ describe('configuration boundaries', () => {
   test('normalizes API prefixes for route and documentation composition', () => {
     const config = parseConfig({URL_PREFIX: '/v1/'});
     expect(config.server.apiPrefix).toBe('/v1');
-    expect(createOpenApiDocument(config).servers).toEqual([{url: '/v1'}]);
+    expect(new OpenApiDocument(config).create().servers).toEqual([{url: '/v1'}]);
     expect(config.app.version).toBe('1.0.3');
-    expect(createOpenApiDocument(config).info.version).toBe(config.app.version);
+    expect(new OpenApiDocument(config).create().info.version).toBe(config.app.version);
     expect(parseConfig({URL_PREFIX: '/'}).server.apiPrefix).toBe('');
   });
 
