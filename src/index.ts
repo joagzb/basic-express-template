@@ -1,7 +1,7 @@
 import 'reflect-metadata';
-import {bootstrapServer} from './server';
+import {server} from './server';
 
-void bootstrapServer().catch((error: unknown) => {
+void server.startServer().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : 'Unknown startup error';
   process.stderr.write(`Application startup failed: ${message}\n`);
   process.exitCode = 1;

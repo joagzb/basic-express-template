@@ -9,59 +9,78 @@ import {AppConfig, loadConfig} from './config';
 import {RedisConnection} from './infrastructure/cache/redis.connection';
 import {ILoggerService} from './infrastructure/logging/logger.interface';
 import {createLogger} from './infrastructure/logging/logger.service';
-import {selectPersistence} from './infrastructure/persistence/select-user-persistence';
+import {PersistenceSelection, selectPersistence} from './infrastructure/persistence/select-user-persistence';
 import {PasswordService, RefreshTokenService, TokenService} from './infrastructure/security/security.service';
 import {withFibonacciRetry} from './infrastructure/startup/retry.strategy';
 import {createRoutes} from './presentation/http/base/routes.factory';
 import {logStartupBanner} from './startup-banner';
 
-export interface ServerRuntime {
-  readonly loadConfig: typeof loadConfig;
-  readonly createLogger: typeof createLogger;
-  readonly selectPersistence: typeof selectPersistence;
-  readonly createRedisConnection: (config: AppConfig, logger: ILoggerService) => RedisConnection;
-  readonly createApp: typeof createApp;
-  readonly retry: typeof withFibonacciRetry;
-}
+export class Server {
+  private dataSource: DataSource | undefined;
+  private redis: RedisConnection | undefined;
 
-const defaultRuntime: ServerRuntime = {
-  loadConfig,
-  createLogger,
-  selectPersistence,
-  createRedisConnection: (config, logger) => new RedisConnection(config, logger),
-  createApp,
-  retry: withFibonacciRetry,
-};
+  public async startServer(): Promise<HttpServer> {
+    // Load configuration and prepare the infrastructure dependencies once.
+    const config = this.loadConfig();
+    const logger = this.createLogger(config);
 
-export async function bootstrapServer(runtime: ServerRuntime = defaultRuntime): Promise<HttpServer> {
-  const config = runtime.loadConfig();
-  const logger = runtime.createLogger(config);
-  let dataSource: DataSource | undefined;
-  let redis: RedisConnection | undefined;
+    try {
+      // Connect persistence and optional Redis before constructing the app.
+      const persistence = await this.initializePersistence(config, logger);
+      await this.connectRedis(config, logger);
 
-  try {
-    const persistence = await runtime.selectPersistence(config, runtime.retry, logger);
-    dataSource = persistence.dataSource;
+      // Compose the side-effect-free HTTP pipeline and start listening.
+      const app = this.createApplication(config, logger, persistence);
+      const httpServer = await this.listen(app, config);
 
-    if (config.redis.enabled) {
-      redis = runtime.createRedisConnection(config, logger);
-      await runtime.retry({
-        name: 'Redis',
-        target: new URL(config.redis.url).host,
-        maxRetries: config.startup.connectRetries,
-        baseDelayMs: config.startup.retryDelayMs,
-        logger,
-        fn: () => redis!.connect(),
-      });
+      // Announce readiness only after the listener is active.
+      this.logStartupBanner(config, logger);
+      this.setupShutdownHooks(httpServer);
+
+      return httpServer;
+    } catch (error) {
+      await this.closeInfrastructure();
+      throw error;
+    }
+  }
+
+  private loadConfig(): AppConfig {
+    return loadConfig();
+  }
+
+  private createLogger(config: AppConfig): ILoggerService {
+    return createLogger(config);
+  }
+
+  private async initializePersistence(config: AppConfig, logger: ILoggerService): Promise<PersistenceSelection> {
+    const persistence = await selectPersistence(config, withFibonacciRetry, logger);
+    this.dataSource = persistence.dataSource;
+    return persistence;
+  }
+
+  private async connectRedis(config: AppConfig, logger: ILoggerService): Promise<void> {
+    if (!config.redis.enabled) {
+      return;
     }
 
+    this.redis = new RedisConnection(config, logger);
+    await withFibonacciRetry({
+      name: 'Redis',
+      target: new URL(config.redis.url).host,
+      maxRetries: config.startup.connectRetries,
+      baseDelayMs: config.startup.retryDelayMs,
+      logger,
+      fn: () => this.redis!.connect(),
+    });
+  }
+
+  private createApplication(config: AppConfig, logger: ILoggerService, persistence: PersistenceSelection): Express {
     const passwordsService = new PasswordService(config.security.bcryptRounds);
     const tokensService = new TokenService(config.security.jwtSecret, config.security.jwtExpiresInSeconds);
     const refreshTokensService = new RefreshTokenService();
     const sessionsRepository = persistence.authSessionRepository;
     const registrationsRepository = persistence.authRegistrationRepository;
     const usersRepository = persistence.userRepository;
-
     const routes = createRoutes({
       userService: new UserService(usersRepository),
       authService: new AuthService(
@@ -77,49 +96,46 @@ export async function bootstrapServer(runtime: ServerRuntime = defaultRuntime): 
       accessTokenService: tokensService,
     });
 
-    const app = runtime.createApp({config, logger, routes});
-    const server = await listen(app, config.server.port, config.server.host);
+    return createApp({config, logger, routes});
+  }
 
+  private listen(app: Express, config: AppConfig): Promise<HttpServer> {
+    return new Promise((resolve, reject) => {
+      const httpServer = app.listen(config.server.port, config.server.host, () => {
+        httpServer.off('error', reject);
+        resolve(httpServer);
+      });
+      httpServer.once('error', reject);
+    });
+  }
+
+  private logStartupBanner(config: AppConfig, logger: ILoggerService): void {
     logStartupBanner(config, logger);
-    setupShutdownHooks(server, () => closeInfrastructure(redis, dataSource));
+  }
 
-    return server;
-  } catch (error) {
-    await closeInfrastructure(redis, dataSource);
-    throw error;
+  private async closeInfrastructure(): Promise<void> {
+    const tasks: Promise<unknown>[] = [];
+
+    if (this.redis) {
+      tasks.push(this.redis.close());
+    }
+
+    if (this.dataSource?.isInitialized) {
+      tasks.push(this.dataSource.destroy());
+    }
+
+    await Promise.allSettled(tasks);
+  }
+
+  private setupShutdownHooks(httpServer: HttpServer): void {
+    const shutdown = (signal: NodeJS.Signals): void => {
+      process.stderr.write(`Received ${signal}; shutting down gracefully...\n`);
+      httpServer.close(() => void this.closeInfrastructure().finally(() => process.exit(0)));
+    };
+
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   }
 }
 
-const listen = (app: Express, port: number, host: string): Promise<HttpServer> => {
-  return new Promise((resolve, reject) => {
-    const server = app.listen(port, host, () => {
-      server.off('error', reject);
-      resolve(server);
-    });
-    server.once('error', reject);
-  });
-};
-
-const closeInfrastructure = async (redis?: RedisConnection, dataSource?: DataSource): Promise<void> => {
-  const tasks: Promise<unknown>[] = [];
-
-  if (redis) {
-    tasks.push(redis.close());
-  }
-
-  if (dataSource?.isInitialized) {
-    tasks.push(dataSource.destroy());
-  }
-
-  await Promise.allSettled(tasks);
-};
-
-const setupShutdownHooks = (server: HttpServer, cleanup: () => Promise<void>): void => {
-  const shutdown = (signal: NodeJS.Signals): void => {
-    process.stderr.write(`Received ${signal}; shutting down gracefully...\n`);
-    server.close(() => void cleanup().finally(() => process.exit(0)));
-  };
-
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
-};
+export const server = new Server();
