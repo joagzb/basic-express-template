@@ -6,11 +6,25 @@ A small Express and TypeScript API template with clear layers, JWT authenticatio
 
 ## Quick start
 
-The easiest local setup uses process-local memory and does not require PostgreSQL or Redis:
+The easiest local setup uses process-local memory and does not require PostgreSQL or Redis. Install Node.js 20 or newer and npm 10 or newer first. Node.js `22.22.2` (the version in `.nvmrc`) is recommended. You can install Node.js directly; `nvm` is optional.
+
+If you use `nvm` on macOS or Linux, run:
 
 ```bash
 nvm install
 nvm use
+```
+
+On Windows with nvm-windows, specify the version explicitly:
+
+```powershell
+nvm install 22.22.2
+nvm use 22.22.2
+```
+
+Then install dependencies and create the local environment file:
+
+```bash
 npm ci
 cp .env.development.example .env.development
 ```
