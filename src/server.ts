@@ -1,80 +1,141 @@
-import express from 'express';
-import cors from 'cors';
-import routes from './api/index';
-import * as expressWinston from 'express-winston';
-import {Logger} from './services/Logger/Logger.service';
-import {errorHandler} from './middlewares/ErrorHandler.middleware';
-import {getPackageInfo, getRunningHostAndPort, listObjectProperties} from './helpers/ServerMessages.utils';
-import ConfigService from './config/config';
+import {Express} from 'express';
+import {Server as HttpServer} from 'node:http';
+import {DataSource} from 'typeorm';
+import {createApp} from './app';
+import {AuthService} from './application/auth/auth.service';
+import {HealthService} from './application/health/health.service';
+import {UserService} from './application/users/user.service';
+import {AppConfig, loadConfig} from './config';
+import {RedisConnection} from './infrastructure/cache/redis.connection';
+import {ILoggerService} from './infrastructure/logging/logger.interface';
+import {PinoLoggerService} from './infrastructure/logging/logger.service';
+import {PersistenceSelection, PersistenceSelector} from './infrastructure/persistence/select-user-persistence';
+import {PasswordService, RefreshTokenService, TokenService} from './infrastructure/security/security.service';
+import {FibonacciRetryStrategy} from './infrastructure/helpers/retry/retry.strategy';
+import {RoutesFactory} from './presentation/http/base/routes.factory';
+import {logStartupBanner} from './startup-banner';
 
-class App {
-  // PROPERTIES
-  private server: express.Application;
-  private loggerInstance = Logger.getInstance();
-  private configService: ConfigService;
+export class Server {
+  private dataSource: DataSource | undefined;
+  private redis: RedisConnection | undefined;
 
-  // CTOR
-  constructor() {
-    // Create a new express app
-    this.server = express();
+  public async startServer(): Promise<HttpServer> {
+    // Load configuration and prepare the infrastructure dependencies once.
+    const config = this.loadConfig();
+    const logger = this.createLogger(config);
 
-    // get global configuration
-    this.configService = ConfigService.getInstance();
+    try {
+      // Connect persistence and optional Redis before constructing the app.
+      const persistence = await this.initializePersistence(config, logger);
+      await this.connectRedis(config, logger);
 
-    // initializations
-    this.initConfiguration();
-    this.initMiddlewares();
-    this.initRoutes();
+      // Compose the side-effect-free HTTP pipeline and start listening.
+      const app = this.createApplication(config, logger, persistence);
+      const httpServer = await this.listen(app, config);
+
+      // Announce readiness only after the listener is active.
+      this.logStartupBanner(config, logger);
+      this.setupShutdownHooks(httpServer);
+
+      return httpServer;
+    } catch (error) {
+      await this.closeInfrastructure();
+      throw error;
+    }
   }
 
-  /**
-   * configures and mount the routes for the express app
-   */
-  private initRoutes(): void {
-    this.server.use(routes);
+  private loadConfig(): AppConfig {
+    return loadConfig();
   }
 
-  /**
-   * sets up the middlewares for the express app
-   */
-  private initMiddlewares() {
-    this.server.use(express.urlencoded({extended: false}));
-    this.server.use(cors());
-    this.server.use(express.json());
-
-    // create a middleware to log your HTTP requests using winston logger
-    this.server.use(expressWinston.logger(this.loggerInstance.expressWinstonConfig));
-
-    this.server.use(errorHandler);
+  private createLogger(config: AppConfig): ILoggerService {
+    return new PinoLoggerService(config);
   }
 
-  /**
-   * sets the express server configurations
-   */
-  private initConfiguration() {
-    this.server.set('host', this.configService.getConfig().server.HOST);
-    this.server.set('port', this.configService.getConfig().server.PORT);
-    this.server.disable('x-powered-by');
+  private async initializePersistence(config: AppConfig, logger: ILoggerService): Promise<PersistenceSelection> {
+    const persistence = await new PersistenceSelector(new FibonacciRetryStrategy(), logger).select(config);
+    this.dataSource = persistence.dataSource;
+    return persistence;
   }
 
-  private showServerUpMessages() {
-    const host = this.server.get('host');
-    const port = this.server.get('port');
-    const prefix = this.configService.getConfig().server.GLOBAL_URL_PREFIX;
+  private async connectRedis(config: AppConfig, logger: ILoggerService): Promise<void> {
+    if (!config.redis.enabled) {
+      return;
+    }
 
-    this.loggerInstance.logger.debug(`Server .env variables: \n${listObjectProperties(this.configService.getConfig())}`);
-    this.loggerInstance.logger.info(`${getPackageInfo()} ${getRunningHostAndPort(host, port, prefix)}`);
-  }
-
-  /**
-   * starts the express server
-   */
-  public startServer() {
-    const port = this.server.get('port');
-    this.server.listen(port, () => {
-      this.showServerUpMessages();
+    this.redis = new RedisConnection(config, logger);
+    await new FibonacciRetryStrategy().execute({
+      name: 'Redis',
+      target: new URL(config.redis.url).host,
+      maxRetries: config.startup.connectRetries,
+      baseDelayMs: config.startup.retryDelayMs,
+      logger,
+      fn: () => this.redis!.connect(),
     });
+  }
+
+  private createApplication(config: AppConfig, logger: ILoggerService, persistence: PersistenceSelection): Express {
+    const passwordsService = new PasswordService(config.security.bcryptRounds);
+    const tokensService = new TokenService(config.security.jwtSecret, config.security.jwtExpiresInSeconds);
+    const refreshTokensService = new RefreshTokenService();
+    const sessionsRepository = persistence.authSessionRepository;
+    const registrationsRepository = persistence.authRegistrationRepository;
+    const usersRepository = persistence.userRepository;
+    const routes = new RoutesFactory({
+      userService: new UserService(usersRepository),
+      authService: new AuthService(
+        usersRepository,
+        passwordsService,
+        tokensService,
+        refreshTokensService,
+        sessionsRepository,
+        registrationsRepository,
+        config.security.refreshTokenExpiresInSeconds,
+      ),
+      healthService: new HealthService(),
+      accessTokenService: tokensService,
+    }).create();
+
+    return createApp({config, logger, routes});
+  }
+
+  private listen(app: Express, config: AppConfig): Promise<HttpServer> {
+    return new Promise((resolve, reject) => {
+      const httpServer = app.listen(config.server.port, config.server.host, () => {
+        httpServer.off('error', reject);
+        resolve(httpServer);
+      });
+      httpServer.once('error', reject);
+    });
+  }
+
+  private logStartupBanner(config: AppConfig, logger: ILoggerService): void {
+    logStartupBanner(config, logger);
+  }
+
+  private async closeInfrastructure(): Promise<void> {
+    const tasks: Promise<unknown>[] = [];
+
+    if (this.redis) {
+      tasks.push(this.redis.close());
+    }
+
+    if (this.dataSource?.isInitialized) {
+      tasks.push(this.dataSource.destroy());
+    }
+
+    await Promise.allSettled(tasks);
+  }
+
+  private setupShutdownHooks(httpServer: HttpServer): void {
+    const shutdown = (signal: NodeJS.Signals): void => {
+      process.stderr.write(`Received ${signal}; shutting down gracefully...\n`);
+      httpServer.close(() => void this.closeInfrastructure().finally(() => process.exit(0)));
+    };
+
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   }
 }
 
-export default new App();
+export const server = new Server();

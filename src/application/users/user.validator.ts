@@ -1,0 +1,93 @@
+import {ValidationIssue, ValidationResult} from 'application/shared/validators/validation.interface';
+import {CommonValidator} from '../shared/validators/common.validator';
+import {CreateUserDto, UpdateUserDto} from './user.dto';
+
+export class UserValidator {
+  private readonly commonValidator = new CommonValidator();
+
+  public validateNewUser(user: CreateUserDto): ValidationResult<CreateUserDto> {
+    const issues: ValidationIssue[] = [];
+
+    if (!user || typeof user !== 'object' || Array.isArray(user)) {
+      return {valid: false, issues: [{code: 'invalid_type', message: 'Expected object', path: 'body'}]};
+    }
+
+    const name = typeof user.name === 'string' ? user.name.trim() : undefined;
+    if (user.name === undefined) {
+      issues.push({code: 'invalid_type', message: 'Required', path: 'body.name'});
+    } else if (typeof user.name !== 'string') {
+      issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.name'});
+    } else if (name?.length === 0) {
+      issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.name'});
+    }
+
+    const surname = typeof user.surname === 'string' ? user.surname.trim() : undefined;
+    if (user.surname === undefined) {
+      issues.push({code: 'invalid_type', message: 'Required', path: 'body.surname'});
+    } else if (typeof user.surname !== 'string') {
+      issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.surname'});
+    } else if (surname?.length === 0) {
+      issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.surname'});
+    }
+
+    const dateOfBirth = typeof user.dateOfBirth === 'string' ? user.dateOfBirth.trim() : undefined;
+    if (user.dateOfBirth === undefined) {
+      issues.push({code: 'invalid_type', message: 'Required', path: 'body.dateOfBirth'});
+    } else if (typeof user.dateOfBirth !== 'string') {
+      issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.dateOfBirth'});
+    } else if (dateOfBirth?.length === 0) {
+      issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.dateOfBirth'});
+    } else if (!this.commonValidator.isDate(dateOfBirth!)) {
+      issues.push({code: 'invalid_string', message: 'Invalid date', path: 'body.dateOfBirth'});
+    }
+
+    return issues.length > 0 ? {valid: false, issues} : {valid: true, value: {name: name!, surname: surname!, dateOfBirth: dateOfBirth!}};
+  }
+
+  public validateUserUpdate(user: UpdateUserDto): ValidationResult<UpdateUserDto> {
+    const issues: ValidationIssue[] = [];
+
+    if (!user || typeof user !== 'object' || Array.isArray(user)) {
+      return {valid: false, issues: [{code: 'invalid_type', message: 'Expected object', path: 'body'}]};
+    }
+
+    const value: {name?: string; surname?: string; dateOfBirth?: string} = {};
+    if (Object.keys(user).length === 0) {
+      issues.push({code: 'too_small', message: 'Object must contain at least 1 key(s)', path: 'body'});
+    }
+
+    if ('name' in user) {
+      if (typeof user.name !== 'string') {
+        issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.name'});
+      } else if (user.name.trim().length === 0) {
+        issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.name'});
+      } else {
+        value.name = user.name.trim();
+      }
+    }
+
+    if ('surname' in user) {
+      if (typeof user.surname !== 'string') {
+        issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.surname'});
+      } else if (user.surname.trim().length === 0) {
+        issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.surname'});
+      } else {
+        value.surname = user.surname.trim();
+      }
+    }
+
+    if ('dateOfBirth' in user) {
+      if (typeof user.dateOfBirth !== 'string') {
+        issues.push({code: 'invalid_type', message: 'Expected string', path: 'body.dateOfBirth'});
+      } else if (user.dateOfBirth.trim().length === 0) {
+        issues.push({code: 'too_small', message: 'String must contain at least 1 character(s)', path: 'body.dateOfBirth'});
+      } else if (!this.commonValidator.isDate(user.dateOfBirth.trim())) {
+        issues.push({code: 'invalid_string', message: 'Invalid date', path: 'body.dateOfBirth'});
+      } else {
+        value.dateOfBirth = user.dateOfBirth.trim();
+      }
+    }
+
+    return issues.length > 0 ? {valid: false, issues} : {valid: true, value};
+  }
+}

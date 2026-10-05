@@ -1,0 +1,37 @@
+name: basic-express-test
+services:
+  test-runner:
+    build:
+      context: .
+      target: development
+    command: sh -c "npm run check && npm run test:integration"
+    env_file: .env.test.example
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+
+  test-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: express_test
+      POSTGRES_PASSWORD: express_test
+      POSTGRES_DB: express_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U express_test -d express_test']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  test-redis:
+    image: redis:7-alpine
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 15

@@ -1,84 +1,28 @@
+export type Environment = 'development' | 'test' | 'production';
+
+export enum PersistenceProvider {
+  MEMORY = 'memory',
+  POSTGRES = 'postgres',
+}
+
 export interface AppConfig {
-  server: ServerConfig;
-  database: DBConnectionConfig;
-  logging: LoggingConfig;
-  timezone: TimezoneConfig;
+  readonly app: {readonly name: string; readonly version: string};
+  readonly environment: Environment;
+  readonly server: {readonly host: string; readonly port: number; readonly apiPrefix: string};
+  readonly startup: {readonly connectRetries: number; readonly retryDelayMs: number};
+  readonly logging: {readonly level: string};
+  readonly persistence: {readonly provider: PersistenceProvider};
+  readonly postgres: {
+    readonly host: string;
+    readonly port: number;
+    readonly username: string;
+    readonly password: string;
+    readonly database: string;
+    readonly schema: string;
+    readonly connectTimeoutMs: number;
+  };
+  readonly redis: {readonly enabled: boolean; readonly url: string; readonly connectTimeoutMs: number};
+  readonly security: {readonly jwtSecret: string; readonly jwtExpiresInSeconds: number; readonly refreshTokenExpiresInSeconds: number; readonly bcryptRounds: number};
 }
 
-/** ========================================================
- *
- * Timezone configurations models
- *
- ======================================================== */
-interface TimezoneConfig {
-  TIMEZONE: string;
-  FORMAT_TIME: string;
-}
-
-/** ========================================================
- *
- * Logger configurations models
- *
- ======================================================== */
-interface LoggingConfig {
-  MIN_LEVEL: LoggerLevels;
-  ENABLED: boolean;
-}
-
-// severity levels.
-export type LoggerLevels = 'error' | 'warn' | 'info' | 'http' | 'debug' | 'verbose' | 'silly';
-
-/** ========================================================
- *
- * server configurations models
- *
- ======================================================== */
-interface ServerConfig {
-  NODE_ENV: environments;
-  GLOBAL_URL_PREFIX: string;
-  HOST: string;
-  PORT: number;
-}
-
-export type environments = 'development' | 'production';
-
-/** ========================================================
- *
- * database configurations models
- *
- ======================================================== */
-type datasources = 'redis' | 'postgres' | 'mysql' | 'mongodb';
-
-interface DBConnectionProperties {
-  HOST: string;
-  PORT: number;
-}
-
-interface DBAuthProperties {
-  USERNAME: string;
-  PASSWORD: string;
-}
-
-export interface PostgresConnectionProperties extends DBConnectionProperties, DBAuthProperties {
-  DATABASE: string;
-  SCHEMA?: string;
-}
-
-export interface MysqlConnectionProperties extends DBConnectionProperties, DBAuthProperties {
-  DATABASE: string;
-}
-
-export interface MongoDBConnectionProperties extends DBConnectionProperties, DBAuthProperties {
-  DATABASE: string;
-}
-
-export interface RedisConnectionProperties extends DBConnectionProperties {
-  PASSWORD: string;
-}
-
-type DBConnectionConfig = Partial<{
-  redis: RedisConnectionProperties;
-  postgres: PostgresConnectionProperties;
-  mysql: MysqlConnectionProperties;
-  mongodb: MongoDBConnectionProperties;
-}>;
+export type RuntimeAppConfig = Pick<AppConfig, 'app' | 'environment' | 'server' | 'startup' | 'logging' | 'persistence' | 'security'>;

@@ -1,19 +1,33 @@
 {
   "name": "basic-express-server",
-  "version": "1.1.0",
-  "description": "express and typescript server bootstrap",
+  "version": "1.0.3",
+  "description": "Development-ready Express and TypeScript API template",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "jest --runInBand --verbose",
-    "prettier": "npx prettier --write .",
-    "lint": "eslint src --fix",
-    "lint:fix": "npm run prettier && npm run lint",
-    "build": "tsc",
-    "serve": "tsc-watch --onSuccess \"node dist/index.js\"",
-    "start": "npm run serve",
-    "start:prod": "npm run build && node dist/index.js"
+    "test": "npm run test:forbid-only && cross-env NODE_ENV=test jest --runInBand",
+    "test:forbid-only": "eslint \"src/**/*.{test,spec}.ts\" --quiet",
+    "test:integration": "cross-env NODE_ENV=test RUN_INTEGRATION_TESTS=true jest --runInBand --runTestsByPath src/__tests__/infrastructure.integration.test.ts",
+    "test:compose": "docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner",
+    "test:compose:down": "docker compose -f docker-compose.test.yml down --volumes --remove-orphans",
+    "test:watch": "cross-env NODE_ENV=test jest --watch",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "dev": "tsc-watch --onSuccess \"node dist/index.js\"",
+    "start": "node dist/index.js",
+    "start:prod": "npm run build && npm start",
+    "prepare": "node .husky/install.mjs",
+    "prepack": "npm run build"
   },
   "author": {
     "name": "Joaquin Gonzalez Budino",
@@ -30,27 +44,34 @@
     "bootstrap"
   ],
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
-    "cross-env": "^7.0.3",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "express-winston": "^4.2.0",
-    "uuid": "^9.0.1",
-    "winston": "^3.17.0"
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
+    "pino": "^9.9.0",
+    "redis": "^5.8.2",
+    "reflect-metadata": "^0.2.2",
+    "swagger-ui-express": "^5.0.1",
+    "typeorm": "^0.3.26"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.23",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/supertest": "^2.0.16",
-    "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
-    "@types/uuid": "^8.3.4",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
+    "cross-env": "^7.0.3",
     "eslint": "^9.31.0",
     "eslint-plugin-jest": "^29.0.1",
     "eslint-plugin-prettier": "^5.5.3",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
     "prettier": "3.6.2",
     "source-map-support": "^0.5.21",
@@ -60,5 +81,11 @@
     "tsc-watch": "^5.0.3",
     "typescript": "^5.8.3"
   },
-  "packageManager": "pnpm@10.13.1"
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "qs": "6.16.0"
+  },
+  "packageManager": "npm@10"
 }

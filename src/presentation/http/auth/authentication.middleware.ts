@@ -1,0 +1,38 @@
+import {NextFunction, Request, RequestHandler, Response} from 'express';
+import {ITokenService} from '../../../domain/auth/auth';
+import {AppError} from '../errors/app-error';
+
+export interface AuthenticatedPrincipal {
+  readonly subject: string;
+  readonly sessionId: string;
+}
+
+export interface AuthenticatedRequest extends Request {
+  auth: AuthenticatedPrincipal;
+}
+
+export class AuthenticationMiddleware {
+  public constructor(private readonly tokens: ITokenService) {}
+
+  public readonly handle: RequestHandler = (request: Request, _response: Response, next: NextFunction): void => {
+    const authorization = request.header('authorization');
+    if (!authorization) {
+      next(new AppError(401, 'AUTHENTICATION_REQUIRED', 'A Bearer access token is required'));
+      return;
+    }
+
+    const match = /^Bearer ([^\s]+)$/.exec(authorization);
+    if (!match) {
+      next(new AppError(401, 'INVALID_AUTHORIZATION_HEADER', 'Authorization must use the Bearer token scheme'));
+      return;
+    }
+
+    try {
+      const payload = this.tokens.verify(match[1]);
+      (request as AuthenticatedRequest).auth = {subject: payload.sub, sessionId: payload.sid};
+      next();
+    } catch {
+      next(new AppError(401, 'INVALID_ACCESS_TOKEN', 'The access token is invalid or expired'));
+    }
+  };
+}
